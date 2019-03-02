@@ -225,7 +225,7 @@ def visualize_cube(cube=None,      # array name
                    vmax=_vmax,
                    edgecolors="face")
         
-        plt.show()
+#         plt.show()
         
         if save_fig != '':
             fig.savefig(save_fig, bbox_inches='tight', dpi = 250)
@@ -445,7 +445,7 @@ def visualize2d(real, fake, raw_cube_mean, scaling, t,
         
 #     print("max_ = "  +str(max_))
 #     cols = real.shape[0] // (2*4)
-    cols = 8
+    cols = min(8,real.shape[0])
     rows = 2
     
     fig, axes = plt.subplots(nrows=2, 
@@ -627,6 +627,7 @@ def histogram_mean_confint(noise, real, log_plot, redshift_fig_folder, t, save_p
         else:
             raise NotImplementedError
 
+        # get the values for each bin for the real and generated cubes
         bin_vals_real, _ , _ = plt.hist(real_viz, bins = bins, 
                                  color = "b" , log = False, alpha = 0.00, 
                                  density=True, label='Real')
@@ -641,7 +642,7 @@ def histogram_mean_confint(noise, real, log_plot, redshift_fig_folder, t, save_p
             bin_vals_m_real = np.column_stack((bin_vals_m_real,bin_vals_real))
             bin_vals_m_noise = np.column_stack((bin_vals_m_noise,bin_vals_noise))
 
-    # take column wise mean
+    # calculate column wise mean
     col_means_real = np.mean(bin_vals_m_real, axis = 1)
     col_means_noise = np.mean(bin_vals_m_noise, axis = 1)
 
@@ -653,11 +654,13 @@ def histogram_mean_confint(noise, real, log_plot, redshift_fig_folder, t, save_p
     bins = bins[1:]
     plt.errorbar(x = bins, 
                  y = col_means_real, 
-                 yerr = col_stddev_real, linestyle=None, marker='o',capsize=3, 
+                 yerr = col_stddev_real, 
+                 linestyle=None, marker='o',capsize=3, 
                  markersize = 2, color = "blue", alpha = 0.25)
     plt.errorbar(x = bins, 
                  y = col_means_noise, 
-                 yerr = col_stddev_noise, linestyle=None, marker='o',capsize=3, 
+                 yerr = col_stddev_noise, 
+                 linestyle=None, marker='o',capsize=3, 
                  markersize = 2, color = "red", alpha = 0.25)
     
             
@@ -920,5 +923,36 @@ def mmd_contributions(k_xx_contrib,
     plt.close()
     
     
+    
+def zero_count_plot(zero_count_real, 
+                   zero_count_gen, 
+                       redshift_fig_folder, 
+                       t, 
+                       save_plot, 
+                       show_plot):
+    
+    print("Zero Count Real: {}".format(zero_count_real))
+    print("Zero Count Gen: {}".format(zero_count_gen))
+    
+    plt.figure(figsize = (12,6))
+    plt.title("Zero Count per Sample in %")
+#     plt.yscale('log')
+    plt.plot(zero_count_real, 
+             color = "red", 
+             label = "Real",
+             linewidth=0.2)
+    plt.plot(zero_count_gen, 
+             color = "blue", 
+             label = "Generated",
+             linewidth=0.2)
+    plt.legend()
+    
+    if save_plot:
+        plt.savefig(redshift_fig_folder + 'zero_counts_' + str(t) + '.png', 
+                    bbox_inches='tight')
+    if show_plot:
+        plt.show() 
+        
+    plt.close()
     
     
