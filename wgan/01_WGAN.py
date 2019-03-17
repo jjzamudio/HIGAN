@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import pandas as pd
 from models import DCGAN_G, DCGAN_D, weights_init
-from wgan_utils import check_coords, power_spectrum_np, _gradient_penalty,  HydrogenDataset, get_samples
+from wgan_utils import check_coords, power_spectrum_np, _gradient_penalty,  HydrogenDataset, get_samples, data_transform
 from plot_utils import plot_loss, visualize_cube,  histogram_mean_confint, visualize2d, plot_power_spec
 
 mean_5=14592.24
@@ -34,7 +34,7 @@ max_l5 =22.199614
 if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--redshift', required=True, help='Dataset to use')
+
     parser.add_argument('--datapath', required=True, help='path to dataset')
     parser.add_argument('--n_samples', type=int, required=True, help='Number of samples')
     parser.add_argument('--s_sample', type=int, default=64, help='Size of samples')
@@ -95,27 +95,26 @@ if __name__=="__main__":
         netD.load_state_dict(torch.load(opt.experiment+'netD_epoch_' + str(epoch_load) + '.pth'))
         
         wass_loss=pd.read_csv(opt.experiment +'loss.csv', header=None)
-        #   a=a.values.tolist()
+
         wass_loss=wass_loss[wass_loss.columns[0]].tolist()
         
     device = torch.device("cuda" if opt.cuda else "cpu")
     
+     #part, datapath, s_sample, nsamples, transform, d2
 
-    #redshift, datapath, s_test, s_sample, nsamples,transform, rotate
-    dataset = HydrogenDataset(redshift='5.0',
+    partition = {'train': [x for x in range(0, n_samples)]}
+    
+    dataset = HydrogenDataset(part = partition,
                               datapath=opt.datapath,
-                                s_test = 1024, 
                                 s_sample = s_sample, 
-                                nsamples = n_samples, 
                                 transform='log_max',
-                                rotate=False,
                                 d2=False)
     
     
     #workers=0
     dataloader = torch.utils.data.DataLoader(dataset, 
                                              batch_size = batchSize,
-                                             shuffle=False, 
+                                             shuffle=True, 
                                              num_workers=int(opt.workers),
                                             drop_last = True)
     
@@ -125,7 +124,6 @@ if __name__=="__main__":
     if torch.cuda.is_available() and not opt.cuda:
         print("WARNING: You have a CUDA device, so you should probably run with --cuda")
 
-    
         
     errG_l=[]
     errD_real_l=[]
@@ -234,6 +232,7 @@ if __name__=="__main__":
                     
                     optimizerD.step()
                     wass_loss.append(float(wass_D.data[0]))
+                    
                 else:
                     errD =  errD_real - errD_fake
                     optimizerD.step()
@@ -275,24 +274,27 @@ if __name__=="__main__":
             #wass_loss.append(float(errD.data[0]))
             errG_l.append(float(errG.data[0]))
     
-            if gen_iterations % 300 == 0:
+            if gen_iterations % 250 == 0:
                 with torch.no_grad():
                     fake = netG(Variable(fixed_noise))
                     fake = np.array(fake)
+                    fake_i = data_transform(fake, 'log_max', inverse=True)
+                    
                     real_cpu = np.array(real_cpu)
+                    
     
-                plot_power_spec((np.exp(fake * max_l5) -1), mean_5, s_size=s_sample, log_scale=True, BoxSize=(75.0/2048.0)*s_sample,
+                plot_power_spec(fake_i, mean_5, s_size=s_sample, log_scale=True, BoxSize=(75.0/2048.0)*s_sample,
                                save_plot=opt.experiment, t=gen_iterations)
-                visualize2d(np.array(real_cpu), np.array(fake), log= False, save=opt.experiment, t=gen_iterations)
                 
-                #plot_densities(np.array(fake), np.array(real_cpu), num_plots = 8, log_=False) 
+                visualize2d(real_cpu, fake, log= False, save=opt.experiment, t=gen_iterations, show_plot=False)
+                
                 histogram_mean_confint(fake, real_cpu, log_plot=False, t = gen_iterations, 
                                        save_plot=opt.experiment, show_plot=False)
-                #noise, real, log_plot,  t, save_plot, show_plot
-                if gen_iterations < 51:
+
+                if gen_iterations < 11:
                     plot_loss(wass_loss,'Wasserstein loss', log_=True, save_plot=opt.experiment, t=gen_iterations)
                 else:
-                    plot_loss(wass_loss[49:],'Wasserstein loss', log_=True, save_plot=opt.experiment, t=gen_iterations)
+                    plot_loss(wass_loss[9:],'Wasserstein loss', log_=True, save_plot=opt.experiment, t=gen_iterations)
                 
                 
                 

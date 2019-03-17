@@ -229,8 +229,8 @@ def visualize_cube(cube  ,
                    cmap=new_cmap,
                    s=2,           
                    alpha = 1,
-                   vmin=0.0,
-                   vmax=.25,
+                   vmin= -0.05,
+                   vmax= 0.33,
                    edgecolors="face")
         
         plt.show()
@@ -241,10 +241,13 @@ def visualize_cube(cube  ,
         plt.close(fig)
 
 def visualize2d(real, fake, log=False, save='', t='', show_plot=True):
-    #min_=-.5
-    min_= 0.0
-    max_= .22
-    #max_=(max_l5-mean_l5) / std_l5
+  
+    #min_= 0
+    #max_= 0.22
+    
+    min_= -0.05
+    max_= 0.27
+
     cols=8
     rows=2
     color = 'viridis'
@@ -289,8 +292,12 @@ def visualize2d(real, fake, log=False, save='', t='', show_plot=True):
     #plt.show()  
 
 def visualize2d_2d(real, fake, log=False, save='', t='', show_plot=True):
-    min_= 0.1
-    max_= 0.7
+    min_= -0.0001
+    max_= 0.3
+    
+    #min_= 0
+    #max_= 0.22
+    
     #max_=(max_l5-mean_l5) / std_l5
     
     cols=8
@@ -460,8 +467,8 @@ def histogram_mean_confint(noise, real, log_plot,  t, save_plot, show_plot, adju
                  markersize = 2, color = "red", alpha = 0.25)
 
     if d2 == False:
-        plt.xlim(-0.1, 0.6)
-        plt.ylim(0, 10)
+        plt.xlim(-1, .8)
+        plt.ylim(0, 7)
     else:
         plt.xlim(0, 0.8)
         #plt.ylim(0, 10)
