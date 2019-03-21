@@ -17,8 +17,8 @@ Code acompaining paper HydroGAN - Replicating n-body simulations using Generativ
 
 ## References
 
-* (Wasserstein GAN) [https://github.com/martinarjovsky/WassersteinGAN]
-* (Wasserstein GAN with gradient penalty
-[https://github.com/EmilienDupont/wgan-gp]
+* [Wasserstein GAN](https://github.com/martinarjovsky/WassersteinGAN)
+* [Wasserstein GAN with gradient penalty]
+(https://github.com/EmilienDupont/wgan-gp)
 
 
