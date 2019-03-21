@@ -10,8 +10,8 @@ Code acompaining paper: 'HydroGAN - Replicating n-body simulations using Generat
 
 ### Installing
 
-* Clone this repo to your local machine using
- git clone https://github.com/jjzamudio/Illustris_GAN.git
+* Clone this repo to your local machine using:
+ git clone git@github.com:jjzamudio/Illustris_GAN.git
 
 ### Usage
 
