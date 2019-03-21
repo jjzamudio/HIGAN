@@ -1,1 +1,1 @@
-# Illustris_GAN
+# HydroGAN - Replicating n-body simulations using Generative Adversarial Networks
