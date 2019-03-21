@@ -13,7 +13,7 @@ Code acompaining paper: 'HydroGAN - Replicating n-body simulations using Generat
 * Clone this repo to your local machine using
  git clone https://github.com/jjzamudio/Illustris_GAN.git
 
-## Usage
+### Usage
 
 To run WGAN in 3D:
 
