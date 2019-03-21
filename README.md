@@ -18,7 +18,7 @@ Code acompaining paper: 'HydroGAN - Replicating n-body simulations using Generat
 To run WGAN in 3D:
 
 ```
-python wgan/wgan.py [-h] [--project-dir PROJECT_DIR] [--data-dir DATA_DIR]
+python wgan/wgan.py [-h] [--datapath DATAPATH] 
                [--plots-dir PLOTS_DIR] [--logs-dir LOGS_DIR]
                [--checkpoints-dir CHECKPOINTS_DIR]
                [--embeddings-dir EMBEDDINGS_DIR] [--dataset-type DATASET_TYPE]
@@ -32,11 +32,10 @@ python wgan/wgan.py [-h] [--project-dir PROJECT_DIR] [--data-dir DATA_DIR]
                [--num-channels NUM_CHANNELS]
                [--num-pairs NUM_PAIRS_PER_EXAMPLE] [--use-pool] [--use-res]
 
-Learning Visual Embeddings for Reinforcement Learning
 
 optional arguments:
-  -h, --help                          show this help message and exit
-  --project-dir PROJECT_DIR           path to project directory
+
+  --datapath DATAPATH                 path to data
   --data-dir DATA_DIR                 path to data directory (used if different from "data/")
   --plots-dir PLOTS_DIR               path to plots directory (used if different from "logs"plots/)
   --logs-dir LOGS_DIR                 path to logs directory (used if different from "logs/")
