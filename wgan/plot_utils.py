@@ -18,6 +18,8 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.ticker import MultipleLocator
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import colors
+from scipy.signal import medfilt
+
 import matplotlib as mpl
 
 mean_5=14592.24
@@ -31,15 +33,23 @@ std_l5 = 1.5777067
 max_l5 =22.199614
 
 
-def plot_loss(datalist, ylabel, log_, save_plot, t):
+def plot_loss(datalist, ylabel, log_, save_plot='', t='', med_filter=False, show_plot=False):
+    
     plt.figure(figsize=(20,10))
+    lw =1
+    
+    if med_filter == True:
+        
+        datalist = medfilt(datalist, kernel_size=199)
+        lw = 3
     
     if ylabel=='Wasserstein loss':
-        plt.plot([-x for x in datalist], linewidth = 1, color='b')
+        
+        plt.plot([-x for x in datalist], linewidth = lw, color='b')
         #plt.ylim(0,max([-x for x in datalist]))
         
     else:
-        plt.plot([x for x in datalist], linewidth = 1, color='b')
+        plt.plot([x for x in datalist], linewidth = lw , color='b')
         
     plt.ylabel(ylabel, fontsize=16)
     plt.yticks(fontsize=14)
@@ -51,22 +61,25 @@ def plot_loss(datalist, ylabel, log_, save_plot, t):
     
     plt.grid()
     
-    
-    plt.savefig(save_plot+ "wass_loss_" + str(t) + ".png", bbox_inches='tight')
+    if show_plot == True:
+        plt.show()
+        
+    if save_plot != '':
+        plt.savefig(save_plot+ "wass_loss_" + str(t) + ".png", bbox_inches='tight')
     plt.close()
-    #plt.show()
     
 
-def visualize_cube(cube  ,  
-             edge_dim,
+def visualize_cube(cube,  
+             edge_dim, fig=None, ax=None,
+             fig_size=(10,10),
              start_cube_index_x=0,
              start_cube_index_y=0,
              start_cube_index_z=0,
-             fig_size=None,
              norm_multiply=1e2,
              size_magnitude = False,
              save_fig = False,
-            raw_cube_max = False):
+            raw_cube_max = False,
+            show_plot=False):
 
     """Takes as input;
     - cube: A 3d numpy array to visualize (scaled to [0,1],
@@ -91,8 +104,9 @@ def visualize_cube(cube  ,
     end_y = start_cube_index_y + cube_size
     end_z = start_cube_index_z + cube_size
     
-    fig = plt.figure(figsize=fig_size)
-    ax = fig.add_subplot(111, projection='3d')
+    if fig == None:
+        fig = plt.figure(figsize=fig_size)
+        ax = fig.add_subplot(111, projection='3d')
 
     data_value = cube[start_cube_index_x:end_x, start_cube_index_y:end_y, start_cube_index_z:end_z]
     
@@ -127,13 +141,8 @@ def visualize_cube(cube  ,
     """
     data_1dim = np.multiply(mask,data_1dim)
 
-    X, Y, Z, data_1dim = [axis[np.where(data_1dim>0)] for axis in [X,Y,Z,data_1dim]]
-
-    #if size_magnitude == True:
-    #    s = norm_multiply * data_1dim
-    #else:
-    #    s = norm_multiply * np.ones_like(a = data_1dim)
-
+    X, Y, Z, data_1dim = [axis[np.where(data_1dim> -0.1)] for axis in [X,Y,Z,data_1dim]]
+    
     if True:
 
         #cmap = colors.LinearSegmentedColormap.from_list("", ["white","blue"])
@@ -229,16 +238,18 @@ def visualize_cube(cube  ,
                    cmap=new_cmap,
                    s=2,           
                    alpha = 1,
-                   vmin= -0.05,
-                   vmax= 0.33,
+                   vmin= -0.1,
+                   vmax= 0.36,
                    edgecolors="face")
         
-        plt.show()
+        if show_plot== True:
+           plt.show()
         
         if save_fig != '':
             fig.savefig(save_fig, bbox_inches='tight', dpi = 1000)
-
-        plt.close(fig)
+        
+        #return fig    
+        #plt.close(fig)
 
 def visualize2d(real, fake, log=False, save='', t='', show_plot=True):
   
@@ -252,7 +263,7 @@ def visualize2d(real, fake, log=False, save='', t='', show_plot=True):
     rows=2
     color = 'viridis'
     
-    fig, axes = plt.subplots(nrows=2, ncols=cols, figsize=(16,4))
+    fig, axes = plt.subplots(nrows = rows, ncols=cols, figsize=(16,4))
     
     for ax, row in zip(axes[:,0], ['Generated', 'Real']):
         ax.set_ylabel(row, rotation=90, fontsize=16)
@@ -467,7 +478,7 @@ def histogram_mean_confint(noise, real, log_plot,  t, save_plot, show_plot, adju
                  markersize = 2, color = "red", alpha = 0.25)
 
     if d2 == False:
-        plt.xlim(-1, .8)
+        plt.xlim(-0.4, 0.6)
         plt.ylim(0, 7)
     else:
         plt.xlim(0, 0.8)

@@ -58,11 +58,11 @@ def check_coords(test_coords, train_coords):
 def get_samples(file, s_sample, nsamples, test_coords):
     #n is size of minibatch, get valid samples (not intersecting with test_coords)
     sample_list=[]
-    m=2048-s_sample
+    m= 2048 - s_sample
     for n in range(nsamples):
         #print("Sample No = " + str(n + 1) + " / " + str(nsamples))
         sample_valid=False
-        while sample_valid==False:
+        while sample_valid == False:
             x = random.randint(0,m)
             y = random.randint(0,m)
             z = random.randint(0,m)
@@ -72,15 +72,14 @@ def get_samples(file, s_sample, nsamples, test_coords):
             
             sample_valid = check_coords(test_coords, sample_coords)
         
-    
         
         sample_list.append(sample_coords)
     
     #Load cube and get samples and convert them to np.arrays
     sample_array=[]
-    #f file has to be opened outisde the function
+
     for c in sample_list:
-        print(c)
+        #print(c)
         a = file[c['x'][0]:c['x'][1],
               c['y'][0]:c['y'][1],
               c['z'][0]:c['z'][1]]
@@ -271,7 +270,7 @@ def _gradient_penalty_2d(D,real_data, generated_data, gp_weight):
 class HydrogenDataset(Dataset):
     """Hydrogen Dataset"""
 
-    def __init__(self, part, datapath, s_sample,  transform, d2):
+    def __init__(self, part, datapath, s_sample,  transform, d2, mode=True):
         """
         Args:
             h5_file (string): name of the h5 file with 32 sampled cubes.
@@ -282,7 +281,8 @@ class HydrogenDataset(Dataset):
         #self.t_coords = {'x': [0, 1023], 'y': [0, 1023], 'z': [0, 1023]} # Hardcoded, can use define_test()
         self.transform=transform
         self.datapath=datapath
-        self.d2=d2
+        self.d2 = d2
+        self.mode = mode
 
     def __len__(self):
         # Function called when len(self) is executed
@@ -290,12 +290,25 @@ class HydrogenDataset(Dataset):
 
     def __getitem__(self, index):
 
-        idx = self.part['train'][index]
         
-        sample = torch.load(self.datapath + "/sample_" + str(idx) + ".pickle")
-        sample = np.array(sample)
+        if self.mode == True:
+            idx = self.part['train'][index]
         
-        if self.transform!=None:
+            sample = torch.load(self.datapath + "samples/sample_" + str(idx) + ".pickle")
+            sample = np.array(sample)
+        
+        else:
+            f = h5py.File(self.datapath + 'fields_z=5.0.hdf5', 'r')
+            f = f['delta_HI'] 
+        
+            t_coords = {'x': [0, 562], 'y': [0, 562], 'z': [0, 562]}
+            sample = get_samples(file = f,
+                            s_sample = self.s_sample,
+                             nsamples = 1,
+                             test_coords = t_coords)
+          
+              
+        if self.transform != None:
             sample = data_transform(sample, self.transform, inverse=False)
                   
                 
@@ -308,35 +321,6 @@ class HydrogenDataset(Dataset):
         return torch.tensor(sample)
 
 
-def get_samples(file, s_sample, nsamples, test_coords):
-    #n is size of minibatch, get valid samples (not intersecting with test_coords)
-    sample_list=[]
-    m=2048-s_sample
-    for n in range(nsamples):
-        #print("Sample No = " + str(n + 1) + " / " + str(nsamples))
-        sample_valid=False
-        while sample_valid==False:
-            x = random.randint(0,m)
-            y = random.randint(0,m)
-            z = random.randint(0,m)
-            sample_coords = {'x':[x,x+s_sample], 
-                             'y':[y,y+s_sample], 
-                             'z':[z,z+s_sample]}
-            
-            sample_valid = check_coords(test_coords, sample_coords)
-        
-        sample_list.append(sample_coords)
-
-    sample_array=[]
-    #f file has to be opened outisde the function
-    for c in sample_list:
-        a = file[c['x'][0]:c['x'][1],
-              c['y'][0]:c['y'][1],
-              c['z'][0]:c['z'][1]]
-        
-        sample_array.append(np.array(a))
-    
-    return np.array(sample_array)
 
 
 def data_transform(sample, transform, inverse=False):
