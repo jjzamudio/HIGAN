@@ -19,7 +19,7 @@ Code acompaining paper: 'HydroGAN - Replicating n-body simulations using Generat
 To run WGAN in 3D:
 
 ```
-python wgan/wgan.py [-h] [--datapath ] [--n_samples] [--experiment] [--fixed]
+python wgan/wgan.py [--datapath ] [--n_samples] [--experiment] [--fixed]
  
 
 Arguments:
