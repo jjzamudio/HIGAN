@@ -1,6 +1,6 @@
 # HydroGAN - Replicating n-body simulations using Generative Adversarial Networks
 
-Code acompaining paper: 'HydroGAN - Replicating n-body simulations using Generative Adversarial Networks'
+Code acompaining paper: 'HydroGAN: Creating hydronamic simualtions using Generative Adversarial Networks'
 
 
 ### Prerequisites
