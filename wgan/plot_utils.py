@@ -32,6 +32,8 @@ mean_l5 = 2.7784111
 std_l5 = 1.5777067
 max_l5 =22.199614
 
+nz=100
+
 
 def plot_loss(datalist, ylabel, log_, save_plot='', t='', med_filter=False, show_plot=False):
     
@@ -702,8 +704,109 @@ def plot_interpolations(G, num_vectors, mode, dim, plot_show=True, save='', fig_
         fig.savefig(save+'samples_'+str(t)+'.png')
            
     plt.close()
+    
+def plot_grid(G=None, size = (8, 8), save='',  show_plot=True):
+    #min_= 0
+    #max_= 0.22
+    if trans == 'log_max':
+        min_= -0.05
+        max_= 0.27
+    else:
+        min_= 0
+        max_= 0.24
+    
+    #min_= -0.01
+    #max_= 0.27
+    
+    
+    rows=size[0]
+    cols=size[1]
+    
+    color = 'viridis'
+    
+    fig, axes = plt.subplots(nrows = rows, ncols=cols, figsize=(8,8))
+    
+    #for ax, row in zip(axes[:,0], ['Generated', 'Real']):
+    #    ax.set_ylabel(row, rotation=90, fontsize=16)
+    
+    if G is None:
+        #Define dataset outside function
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size = 1, shuffle=True, num_workers=0, drop_last = True)
+        data_iter = iter(dataloader)
+        
+    
+    mf, mr= 0,0
+    for ax in axes.flat:
+        #Plot only half of the mini-batch
+        
+        if G is None:
+            cube = data_iter.next().numpy()
+        else:
+            noise = torch.FloatTensor(1, 100, 1 , 1, 1).normal_(0, std_z)
+            cube = G(Variable(noise)).detach().numpy()
+            
+        im = ax.imshow(cube[0][0].mean(axis=2),  cmap = color,
+                       interpolation=None, vmin=min_, vmax=max_, aspect='auto')
 
-
-
+        mf+=1
+       
+        ax.set_xticks([])
+        ax.set_yticks([])
+    
+    fig.tight_layout() 
+    plt.subplots_adjust(hspace=0, wspace=0)
+    
+    if show_plot == True:
+        plt.show()
+     
+    if save!='':
+        fig.savefig(save+'grid.png', dpi=200)
+        
+           
+    plt.close()
+    #plt.show()  
+    
+def plot_grid_3D(G, size = (1,6), plot_show=True, save='', fig_size=(20,10)):
+    rows=size[0]
+    cols=size[1]
+    
+    if G is None:
+        #Define dataset outside function
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size = 1, shuffle=True, num_workers=0, drop_last = True)
+        data_iter = iter(dataloader)
+    
+    fig = plt.figure(figsize=fig_size)
+        #fig.suptitle(mode +' interpolations in latent space', fontsize=26)
+        
+    for n in range(1, rows + cols+1):
+        
+        if G is None:
+            cube = data_iter.next().numpy()
+        else:
+            noise = torch.FloatTensor(1, 100, 1 , 1, 1).normal_(0, std_z)
+            #noise = torch.FloatTensor(1, 100, 1 , 1, 1).uniform(-1,1)
+            
+            
+            cube = G(Variable(noise)).detach().numpy()
+        
+        
+        ax = fig.add_subplot(rows, cols, n, projection='3d')
+            
+        visualize_cube(cube = cube[0][0], edge_dim=s_sample, fig = fig, ax = ax,
+                 start_cube_index_x=0, start_cube_index_y=0, start_cube_index_z=0,
+                 norm_multiply=1e2, size_magnitude = False, raw_cube_max = 1,
+                save_fig = '')
+            
+    fig.tight_layout() 
+        
+    plt.subplots_adjust(hspace=0, wspace=0)
+    
+    if plot_show == True:
+        plt.show()
+    
+    if save != '':
+        fig.savefig(save +'3d_grid.png', dpi = 200)
+           
+    plt.close()
 
 
