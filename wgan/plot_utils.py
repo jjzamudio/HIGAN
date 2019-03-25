@@ -619,3 +619,91 @@ def generate_3d_images(no_images, dataset, save_plot):
                  norm_multiply=1e2, size_magnitude = False, raw_cube_max = 1,
                 save_fig = save_plot)
 
+
+def get_latents(mode, nb_latents=8, filter_latents=1):
+    
+    if mode == 'Gaussian':
+        latents = np.random.randn(nb_latents, nz, 1, 1, 1).astype(np.float32)
+    
+        latents = ndimage.gaussian_filter(latents, [filter_latents, 0, 0, 0, 0], mode='wrap')
+        latents /= np.sqrt(np.mean(latents**2))
+    
+    elif mode == 'Linear':
+        #v_new = x v1 + (1-x) v2
+        alphas = np.linspace(0, 1, num = nb_latents)
+        
+        z1 = torch.FloatTensor(nz, 1).normal_(0, 1).numpy()
+        z2 = torch.FloatTensor(nz, 1).normal_(0, 1).numpy()
+        
+        latents = 0
+        
+        n=0
+        for a in alphas:
+            new_v = a * z1 + (1-a) * z2
+            
+            if n == 0:
+                latents = new_v
+            else:
+                latents = np.hstack((latents, new_v))
+            n+=1
+        
+        latents = latents.T
+        latents = latents.reshape(nb_latents, nz, 1, 1, 1)
+
+    else:
+        print('Mode not implemented')
+  
+    return torch.from_numpy(latents)
+
+def plot_interpolations(G, num_vectors, mode, dim, plot_show=True, save='', fig_size=(20,10)):
+    
+    z = get_latents(mode = mode , nb_latents = num_vectors, filter_latents=1)
+    fake = G(Variable(z)).detach().numpy()
+    cols = num_vectors
+    rows = 1
+    
+    if dim == '3D' or dim == 'both':
+        fig = plt.figure(figsize=fig_size)
+        #fig.suptitle(mode +' interpolations in latent space', fontsize=26)
+        
+        for n in range(1, num_vectors+1):
+            ax = fig.add_subplot(rows, num_vectors, n, projection='3d')
+            
+            visualize_cube(cube=fake[n-1][0], edge_dim=s_sample, fig = fig, ax = ax,
+                 start_cube_index_x=0, start_cube_index_y=0, start_cube_index_z=0,
+                 norm_multiply=1e2, size_magnitude = False, raw_cube_max = 1,
+                save_fig = '')
+            
+        fig.tight_layout() 
+        
+    if dim == '2D' or dim == 'both':
+        min_= -0.05   #-0.1
+        max_= 0.27    #0.36
+        
+       
+        color = 'viridis'
+        
+        fig, axes = plt.subplots(nrows = rows, ncols=cols, figsize=(fig_size[0]-2, fig_size[1]-2))
+        n=0
+        for ax in axes.flat:
+            ax.imshow(fake[n][0].mean(axis=2), aspect='equal', cmap = color,
+                       interpolation=None, vmin=min_, vmax=max_)
+            n+=1
+            
+            ax.set_xticks([])
+            ax.set_yticks([])
+        fig.tight_layout() 
+    
+    
+    if plot_show == True:
+        plt.show()
+    
+    if save!='':
+        fig.savefig(save+'samples_'+str(t)+'.png')
+           
+    plt.close()
+
+
+
+
+
