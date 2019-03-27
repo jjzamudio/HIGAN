@@ -1,6 +1,6 @@
 # HydroGAN: Creating hydrodynamic simualtions using Generative Adversarial Networks
 
-Code acompaining paper: 'HydroGAN: Creating hydrodynamic simualtions using Generative Adversarial Networks'
+Code acompaining paper: HydroGAN: Creating hydrodynamic simualtions using Generative Adversarial Networks
 
 
 ### Prerequisites
