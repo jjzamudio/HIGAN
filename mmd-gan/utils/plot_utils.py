@@ -11,8 +11,10 @@ from matplotlib import colors
 import h5py
 import matplotlib as mpl
 from pathlib import Path
-import utils.data_utils
 import timeit
+import torch
+
+import utils.data_utils
 
 
 
@@ -320,6 +322,8 @@ def mmd_hist_plot(noise, real, recon_noise, recon_real,
 
 
     plt.legend()
+    plt.grid(True)
+    
     if log_plot:
         plt.savefig(redshift_fig_folder + file_name , 
                     bbox_inches='tight')
@@ -369,6 +373,8 @@ def mmd_loss_plots(fig_id, fig_title, data, show_plot, save_plot, redshift_fig_f
         
     plt.xlabel("Number of Minibatch Iterations")
     
+    plt.grid(True)
+    
     plt.plot(data,
              linewidth=0.5)
     if save_plot:
@@ -412,6 +418,7 @@ def plot_minibatch_value_sum(sum_real,
              alpha = 0.3,
              color = "orange")
     plt.legend()
+    plt.grid(True)
     if save_plot:
         plt.savefig(redshift_fig_folder + 'sum_minibatch_' + str(t) + '.png', 
                     bbox_inches='tight')
@@ -669,6 +676,7 @@ def histogram_mean_confint(noise, real, log_plot, redshift_fig_folder, t, save_p
     plt.title('Means and Confidence Intervals of Real and Generated Samples', fontsize=font_size)
 #     plt.legend(fontsize=font_size)
     
+    
     if save_plot:
         plt.savefig(redshift_fig_folder + "hist_meanstddev_" + str(t) + ".png", 
                 bbox_inches='tight') 
@@ -678,6 +686,125 @@ def histogram_mean_confint(noise, real, log_plot, redshift_fig_folder, t, save_p
         
     plt.close()
     
+    
+    
+    
+    
+def histogram_mean_confint_many(netG,   # should be inverse_transformed
+                             f_enc_X_size,
+                                sampled_subcubes,
+                             total_cubes, redshift_fig_folder, t, save_plot, show_plot, plot_minmax):
+    """
+    Plots the mean and confidence intervals for each bin of the histogram
+    Args:
+        real(): real data
+        epoch(integer): epoch number
+        file_name(string): name of the file
+        hd (integer) : if 0 it's a histogram, if 1 it's a pdf
+        
+    """
+#     batch_size = noise.shape[0]
+    
+#     plt.figure(figsize = (20,10))
+    plt.figure(figsize = (12,6))
+    plot_min, plot_max = plot_minmax
+#     plt.xlim(0.01, 0.5)
+    plt.xlim(plot_min, plot_max)
+    plt.ylim(0, 20)
+    font_size = 12
+    
+#     bins = np.linspace(0, 0.5, 500)
+#     bins = np.linspace(plot_min, 0.5, 500)
+    bins = np.linspace(plot_min, plot_max, 500)
+    
+        
+#     for m in range(total_cubes):
+    for m in range(8):
+        
+        if (m+1) % 50 == 0:
+            print(m)
+
+        real = sampled_subcubes[0]
+        
+#         noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, 1)
+        noise = torch.FloatTensor(f_enc_X_size).normal_(0, 1)
+        noise = noise[0]
+        
+        generated_cube = netG(noise)
+        generated_cube = generated_cube.cpu().detach().numpy()
+
+    
+        if len(generated_cube.shape) == 4:
+            generated_cube = generated_cube.reshape(-1,
+                                                    1,
+                                                    generated_cube.shape[2],
+                                                    generated_cube.shape[2])
+        else:
+            generated_cube = generated_cube.reshape(-1,
+                                                    1,
+                                                    generated_cube.shape[2],
+                                                    generated_cube.shape[2],
+                                                    generated_cube.shape[2])
+
+        
+        real_viz = real.flatten()
+        noise_viz = generated_cube.flatten()
+
+
+        # get the values for each bin for the real and generated cubes
+        bin_vals_real, _ , _ = plt.hist(real_viz, bins = bins, 
+                                 color = "b" , log = False, alpha = 0.00, 
+                                 density=True, label='Real')
+        bin_vals_noise, _ , _ = plt.hist(noise_viz, bins = bins, 
+                             color = "b" , log = False, alpha = 0.00, 
+                             density=True, label='Generated')
+
+        if m == 0:
+            bin_vals_m_real = bin_vals_real
+            bin_vals_m_noise = bin_vals_noise
+        else:
+            bin_vals_m_real = np.column_stack((bin_vals_m_real,bin_vals_real))
+            bin_vals_m_noise = np.column_stack((bin_vals_m_noise,bin_vals_noise))
+
+    # calculate column wise mean
+    col_means_real = np.mean(bin_vals_m_real, axis = 1)
+    col_means_noise = np.mean(bin_vals_m_noise, axis = 1)
+
+    # calculate column wise stddev
+    col_stddev_real = np.std(bin_vals_m_real, axis = 1)
+    col_stddev_noise = np.std(bin_vals_m_noise, axis = 1)
+
+    # plot means and confidence interval
+    bins = bins[1:]
+    plt.errorbar(x = bins, 
+                 y = col_means_real, 
+                 yerr = col_stddev_real, 
+                 linestyle=None, marker='o',capsize=3, 
+                 markersize = 2, color = "blue", alpha = 0.25)
+    plt.errorbar(x = bins, 
+                 y = col_means_noise, 
+                 yerr = col_stddev_noise, 
+                 linestyle=None, marker='o',capsize=3, 
+                 markersize = 2, color = "red", alpha = 0.25)
+    
+            
+  
+    plt.tick_params(axis='both', labelsize=font_size)
+    plt.title('Means and Confidence Intervals of Real and Generated Samples', fontsize=font_size)
+#     plt.legend(fontsize=font_size)
+    
+    if save_plot:
+        plt.savefig(redshift_fig_folder + "hist_meanstddev_" + str(t) + ".png", 
+                bbox_inches='tight') 
+    
+    if show_plot:
+        plt.show() 
+        
+    plt.close()
+
+ 
+
+
     
     
 def grad_norm_plot(grad_norm_D, 
@@ -699,6 +826,7 @@ def grad_norm_plot(grad_norm_D,
              label = "grad_norm_G",
              linewidth=0.5)
     plt.legend()
+    plt.grid(True)
     
     if save_plot:
         plt.savefig(redshift_fig_folder + 'grad_norms_' + str(t) + '.png', 
@@ -722,6 +850,7 @@ def grad_pen_plot(grad_pen,
              color = "red",
              linewidth=0.5)
 #     plt.legend()
+    plt.grid(True)
     
     if save_plot:
         plt.savefig(redshift_fig_folder + 'grad_penalty_' + str(t) + '.png', 
@@ -755,6 +884,7 @@ def encoding_mean_plot(f_enc_X_D_mean,
              label = "mean_differences",
              linewidth=0.5)
     plt.legend()
+    plt.grid(True)
     
     if save_plot:
         plt.savefig(redshift_fig_folder + 'embedding_means_' + str(t) + '.png', 
@@ -910,6 +1040,8 @@ def mmd_contributions(k_xx_contrib,
              alpha = 0.5,
              color = "green")
     plt.legend()
+    plt.grid(True)
+    
     if save_plot:
         if D_or_G == "D":
             plt.savefig(redshift_fig_folder + 'mmd_contributions_D_' + str(t) + '.png', 
@@ -940,12 +1072,13 @@ def zero_count_plot(zero_count_real,
     plt.plot(zero_count_real, 
              color = "red", 
              label = "Real",
-             linewidth=0.2)
+             linewidth=1)
     plt.plot(zero_count_gen, 
              color = "blue", 
              label = "Generated",
-             linewidth=0.2)
+             linewidth=1)
     plt.legend()
+    plt.grid(True)
     
     if save_plot:
         plt.savefig(redshift_fig_folder + 'zero_counts_' + str(t) + '.png', 
