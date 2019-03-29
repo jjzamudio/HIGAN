@@ -8,8 +8,7 @@ import random
 import numpy as np
 import torch
 import h5py
-random.seed(a=1)
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from torch.autograd import Variable, grad
 
 mean_5=14592.24
@@ -270,7 +269,7 @@ def _gradient_penalty_2d(D,real_data, generated_data, gp_weight):
 class HydrogenDataset(Dataset):
     """Hydrogen Dataset"""
 
-    def __init__(self, part, datapath, s_sample,  transform, d2, mode=True):
+    def __init__(self, part, datapath, s_sample,  transform, d2=False, mode=True):
         """
         Args:
             h5_file (string): name of the h5 file with 32 sampled cubes.
@@ -301,29 +300,29 @@ class HydrogenDataset(Dataset):
             f = h5py.File(self.datapath + 'fields_z=5.0.hdf5', 'r')
             f = f['delta_HI'] 
         
-            t_coords = {'x': [0, 562], 'y': [0, 562], 'z': [0, 562]}
+            t_coords = {'x': [0, 1024], 'y': [0, 1024], 'z': [0, 1024]}
             sample = get_samples(file = f,
                             s_sample = self.s_sample,
                              nsamples = 1,
                              test_coords = t_coords)
           
-              
+        if self.d2 == True:
+                 sample = sample.mean(axis=2)  
+                 
         if self.transform != None:
-            sample = data_transform(sample, self.transform, inverse=False)
+            sample = data_transform(sample, self.transform, self.d2, inverse=False)
                   
                 
         if self.d2 == False:
             sample = sample.reshape((1, self.s_sample, self.s_sample, self.s_sample))
-        else:
-            sample = sample.mean(axis=2)  
-            sample = sample.reshape((1, self.s_sample, self.s_sample))
+            #sample = sample.reshape((1, self.s_sample, self.s_sample))
 
         return torch.tensor(sample)
 
 
 
 
-def data_transform(sample, transform, inverse=False):
+def data_transform(sample, transform, d2=False, inverse=False):
     e = 1e-2
     em = 1
     
@@ -333,11 +332,14 @@ def data_transform(sample, transform, inverse=False):
         else:
             sample =10**(sample * (np.log10(max_5) - em)) - e
             
-    if transform == 'log_max_p':
+    elif transform == 'log_max_p':
         if inverse == False:
-            sample = np.log(sample +1) / (max_l5)
+            sample = np.log(sample + 1) / (max_l5)
         else:
             sample =np.exp(sample * max_l5) - 1
+    
+    else:
+        print('Mode not implemented')
         
     
     return sample

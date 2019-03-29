@@ -38,7 +38,7 @@ if __name__=="__main__":
     parser.add_argument('--datapath', required=True, help='path to dataset')
     parser.add_argument('--n_samples', type=int, required=True, help='Number of samples')
     parser.add_argument('--s_sample', type=int, default=64, help='Size of samples')
-    parser.add_argument('--workers', type=int, deafult=0, help='number of data loading workers', default=0)
+    parser.add_argument('--workers', type=int, help='number of data loading workers', default=0)
     parser.add_argument('--batchSize', type=int, default=32, help='input batch size')
     parser.add_argument('--epoch_st', type=int, default=0, help='Number of epoch to start')
     parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
@@ -59,9 +59,10 @@ if __name__=="__main__":
     parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
     parser.add_argument('--experiment', default=None, help='Where to store samples and models')
     parser.add_argument('--fixed', action='store_true', help='Use fixed samples' )
+    parser.add_argument('--transform', default='log_max', help='Type of data transformation')
     opt = parser.parse_args()
     print(opt)
-   
+    print('---', opt.experiment, '---')
      
     n_samples = int(opt.n_samples)
     s_sample = int(opt.s_sample)
@@ -95,9 +96,8 @@ if __name__=="__main__":
         netG.load_state_dict(torch.load(opt.experiment+'netG_epoch_' + str(epoch_load) + '.pth'))
         netD.load_state_dict(torch.load(opt.experiment+'netD_epoch_' + str(epoch_load) + '.pth'))
         
-        wass_loss=pd.read_csv(opt.experiment +'loss.csv', header=None)
-
-        wass_loss=wass_loss[wass_loss.columns[0]].tolist()
+        #wass_loss=pd.read_csv(opt.experiment +'loss.csv', header=None)
+        #wass_loss=wass_loss[wass_loss.columns[0]].tolist()
         
     device = torch.device("cuda" if opt.cuda else "cpu")
     
@@ -108,7 +108,7 @@ if __name__=="__main__":
     dataset = HydrogenDataset(part = partition,
                               datapath=opt.datapath,
                                 s_sample = s_sample, 
-                                transform='log_max',
+                                transform= opt.transform,
                                 d2=False,
                                 mode = opt.fixed)
     
@@ -187,8 +187,8 @@ if __name__=="__main__":
             for p in netD.parameters(): # reset requires_grad
                 p.requires_grad = True # they are set to False below in netG update
                
-            if gen_iterations < 5 or gen_iterations % 500 == 0:
-                Diters = 1
+            if gen_iterations < 2 or gen_iterations % 500 == 0:
+                Diters = 100
             else:
                 Diters = opt.Diters
                 
@@ -270,17 +270,17 @@ if __name__=="__main__":
             #wass_loss.append(float(errD.data[0]))
             errG_l.append(float(errG.data[0]))
     
-            if gen_iterations % 1 == 0:
+            if gen_iterations % 250 == 0:
                 with torch.no_grad():
                     fake = netG(Variable(fixed_noise))
                     fake = np.array(fake)
-                    fake_i = data_transform(fake, 'log_max', inverse=True)
+                    #fake_i = data_transform(fake, opt.transform, inverse=True)
                     
                     real_cpu = np.array(real_cpu)
                     
     
-                plot_power_spec(fake_i, mean_5, s_size=s_sample, log_scale=True, BoxSize=(75.0/2048.0)*s_sample,
-                               save_plot=opt.experiment, t=gen_iterations)
+               # plot_power_spec(fake_i, mean_5, s_size=s_sample, log_scale=True, BoxSize=(75.0/2048.0)*s_sample,
+               #                save_plot=opt.experiment, t=gen_iterations)
                 
                 visualize2d(real_cpu, fake, log= False, save=opt.experiment, t=gen_iterations, show_plot=False)
                 
