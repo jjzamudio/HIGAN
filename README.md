@@ -48,7 +48,7 @@ Optional arguments:
   --lambda_                   Parameter for gradient penalty (default=10)
   --Diters                    Number of Discriminator iterations per Generator iterations (default=5)
   --n_extra_layers            Number of convolutional extra layers for Generator and Discriminator (default=0)
-  
+  --transform                 Type of data transformation
 
 ```
 
