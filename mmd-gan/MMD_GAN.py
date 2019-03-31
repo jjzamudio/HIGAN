@@ -76,7 +76,7 @@ from pathlib import Path
 # In[4]:
 
 
-notes = "added Repulsive loss author's suggestions. disabled gradient penalty & unbiased MMD"
+notes = ""
 
 
 # ### Training Options
@@ -85,9 +85,9 @@ notes = "added Repulsive loss author's suggestions. disabled gradient penalty & 
 
 
 run_mode = "training"                       # training OR continue = continue if load another model is loaded and continued to train
-continue_train_folder = ""    # "jupyter-output-552" # the folder where the previous run is for the saved model to be trained further
-netD_iter_file = ""         # netD_iter_xx.pth file that contains the state dict under models/
-netG_iter_file = ""         # netG_iter_xx.pth file that contains the state dict under models/
+continue_train_folder = "jupyter-output-673"    # "jupyter-output-552" # the folder where the previous run is for the saved model to be trained further
+netD_iter_file = "netD_iter_90.pth"         # netD_iter_xx.pth file that contains the state dict under models/
+netG_iter_file = "netG_iter_90.pth"         # netG_iter_xx.pth file that contains the state dict under models/
 optD_iter_file = ""    # optD_iter_10.pth
 optG_iter_file = ""    # optG_iter_10.pth
 
@@ -96,7 +96,7 @@ gpu_device = 0                              # GPU_DEVICE: gpu id (default 0)
 nc = 1                # NC: number of channels in images
 cube_size = 64       # for our dataset more like one edge of the subcube
 disc_lr = 5e-4               # LR: learning rate - default: 5e-5 (rmsprop) , 1e-4:adam
-gen_lr = 1e-4               # LR: learning rate - default: 5e-5 (rmsprop) , 1e-4:adam
+gen_lr = 2e-4               # LR: learning rate - default: 5e-5 (rmsprop) , 1e-4:adam
 max_iter = 150         # MAX_ITER: max iteration for training
 
 optimizer_choice = "adam"     # adam or rmsprop
@@ -106,7 +106,7 @@ lr_decay = False               # Square root decay-> Just True or False        |
 save_optim = False
 
 manual_seed = 1
-sample_size_multiplier = 101 * 6
+sample_size_multiplier = 100 * 3
 n_samples = batch_size * sample_size_multiplier      # on prince, number of samples to get from the training cube
 Diter_1 = 1   # default: 100
 Giter_1 = 1      # default: 1
@@ -122,8 +122,8 @@ edge_test = 512
 mmd2_D_train_limit = False       # if True, if MMD2_D is less than 0, the generator training will be skipped
 mmd2_D_skip_G_train = False
 
-enable_gradient_penalty = False  # Repulsive loss -> GP = False because there is spectral norm
-lambda_gradpen = 1               # WGAN-GP = 10 | Demystifying MMD GANs = 1
+enable_gradient_penalty = False  # Repulsive loss -> GP = False because there is spectral norm ||True = GP is used
+lambda_gradpen = False              # Juan = 10 | Demystifying MMD GANs = 1
 
 
 # In[6]:
@@ -139,18 +139,24 @@ assert n_samples > Diter_1, "The gen_iterations wont work properly!"
 
 model_choice = "conv"                  # conv or con_fc
 dimension_choice = "3D"                # 2D or 3D
-nz = 64                          # hidden dimension channel
+nz = 512                          # hidden dimension channel
 
 reconstruction_loss = False            # enable reconstruction loss or not
 dist_ae = 'L2'                         # "L2" or "L1" -> Autoencoder reconstructruced cube loss choice,  "cos" doesnt work
 
-repulsive_loss = 1.0                   # False | lambda_repulsive ex: {False, 0.1, 0.7, 1.0}
+relu_mmd = False                    # whether to use ReLU in both MMD losses
+repulsive_loss = True                   # False/True
+lambda_repulsive = 0.0              # lambda_repulsive ex: {False, 0.1, 0.7, 1.0}
 bounded_rbf_kernel = True             # True or False
+upper_bound = 4.0                   # Default = 4 in repulsive loss
+lower_bound = 0.25                   # Default = 0.25 in repulsive loss
 
 mmd_kernel = "rbf"                     # rbf , rbf_ratio, poly , linear, rq , rq_linear
-sigma_list = [1]         # sigma for RBF Kernel MMD
-alpha_list = [2,5,10,20,40,80]         # alpha list for RQ Kernel MMD #[1, 2, 5, 10, 20, 40, 80]    # [0.2,0.5,1.0,2.0,5.0]
+disc_sigma_list = [1]                 #[2**-1, 1, 2**0.5, 2, 2**1.5, 4]         # sigma for RBF Kernel MMD
+gen_sigma_list = [1]                  # should be [1] for gen too (richardwth)
+alpha_list = [0.2,0.5,1,2,5]         # alpha list for RQ Kernel MMD #[1, 2, 5, 10, 20, 40, 80]    # [0.2,0.5,1.0,2.0,5.0]
 biased_mmd = False                     # author of Repulsive loss suggested False
+noise_var = 1
 
 weight_clip_enabled = False
 left_clamp =  -0.01                    # default: -0.01
@@ -259,14 +265,84 @@ root = 0 # should be an integer
 inverse_transform = "log_scale_neg11"    # scale_01 / scale_neg11 / root / 
                                 # root_scale_01 / root_scale_neg11
                                 # log_scale_01 / log_scale_neg11
+        # juan_log_max
         
 
+
+# ### Testing Options
+
+# In[13]:
+
+
+in_testing = False              # True if doing testing
+
+
+# ### Debug Utils
+
+# In[14]:
+
+
+# if run_in_jupyter:
+#     %run utils/debug_utils.py
+# else:
+from utils.debug_utils import log
+
+
+# In[15]:
+
+
+# DEBUG = False
+
+
+# In[16]:
+
+
+# print("log('asdas') output = " + str(log("asdas")))
+
+
+# ### Creating output folder
+
+# In[17]:
 
 
 # create trial folder if it doesn't exist
 if Path(experiment).exists() == False:
     print("Creating the output folder: {}".format(experiment))
     os.mkdir(experiment)
+
+
+# ### Loading Model & Training Hyperparameters
+
+# This doesnot work because the loaded variables overwrite the variables when continuing the training
+
+# In[18]:
+
+
+# skip_variable_list = ["netD_iter_file","netG_iter_file","run_mode","continue_train_folder"]
+
+# if run_mode == "continue":
+#     # Load the saved hyperparameter dictionary
+#     with open('./outputs/'+continue_train_folder+'/hyperparam_dict.pickle', 'rb') as handle:
+#         param_dict = pkl.load(handle)
+
+#     variable_list = list(param_dict.keys())
+#     g = globals()
+#     # print(str(variable_list[0]) + ":" + str(g[variable_list[0]]))
+#     # g[variable_list[0]]
+
+#     for variable_name in variable_list:
+#         # skip the variables to preserve information
+#         if variable_name in skip_variable_list:
+#             print("{}:\t\t\t{} -> {}".format(variable_name,g[variable_name],g[variable_name]))
+#             continue
+            
+#         print("{}:\t\t\t{} -> {}".format(variable_name,g[variable_name],param_dict[variable_name]))
+#         g[variable_name] = param_dict[variable_name]
+
+
+# ### Saving Model & Training Hyperparameters
+
+# In[ ]:
 
 
 param_dict = {}
@@ -301,8 +377,10 @@ param_dict["dimension_choice"] = dimension_choice
 param_dict["reconstruction_loss"] = reconstruction_loss
 param_dict["dist_ae"] = dist_ae
 param_dict["repulsive_loss"] = repulsive_loss
+param_dict["lambda_repulsive"] = lambda_repulsive
 param_dict["mmd_kernel"] = mmd_kernel
 param_dict["biased_mmd"] = biased_mmd
+param_dict["noise_var"] = noise_var
 param_dict["bounded_rbf_kernel"] = bounded_rbf_kernel
 param_dict["nz"] = nz
 param_dict["model_param_init"] = model_param_init
@@ -313,7 +391,8 @@ param_dict["lambda_MMD"] = lambda_MMD
 param_dict["lambda_AE_X"] = lambda_AE_X
 param_dict["lambda_AE_Y"] = lambda_AE_Y
 param_dict["lambda_rg"] = lambda_rg
-param_dict["sigma_list"] = sigma_list
+param_dict["disc_sigma_list"] = disc_sigma_list
+param_dict["gen_sigma_list"] = gen_sigma_list
 param_dict["alpha_list"] = alpha_list
 param_dict["min_var_est"] = min_var_est
 
@@ -535,10 +614,6 @@ shutil.copy("models/decoder_v06_UpsampleConv_Linear_3D.py",experiment)
 # In[ ]:
 
 
-# if run_in_jupyter:
-#     %run models/NetD.py
-#     %run models/NetG.py
-# else:
 # from models.NetD import *
 from models.NetD_NoDec import *
 from models.NetG import *
@@ -547,9 +622,6 @@ from models.NetG import *
 # In[ ]:
 
 
-# if run_in_jupyter:
-#     %run one_sided.py
-# else:
 from one_sided import *
 
 
@@ -1030,42 +1102,151 @@ for t in range(max_iter):
         for j in range(Diters):
             if i == len(trn_loader):
                 break
+                
+#             try:
+#                 if mmd2_D.item() <= 0.0 and mmd2_D_train_limit == True:
+#                     print("Not training the discriminator because mmd2_D is less than 0")
+#                     break
+#             except:
+#                 pass
 
             time_1 = time.time()
-            print("j / Diter = " + str(j+1) + " / " + str(Diters))
+            print("\nj / Diter = " + str(j+1) + " / " + str(Diters))
+            # clamp parameters of NetD encoder to a cube
+            # do not clamp parameters of NetD decoder!!!
+            # exactly like numpy.clip()
             
             start = time.time()
-
+#             print("loop start time = " + str(start))
+            
+            """
+            Given an interval, values outside the interval are clipped to the interval edges. 
+            For example, if an interval of [0, 1] is specified, values smaller than 0 become 0, 
+            and values larger than 1 become 1.
+            
+            Below code clamps the encoder parameters of the 
+            dsicriminator between -0.01 and 0.01
+            """
             if weight_clip_enabled == True:
                 for p in netD.encoder.parameters():
                     p.data.clamp_(left_clamp, right_clamp)
             
+            # Profiler
+#             with torch.autograd.profiler.profile(use_cuda = False) as prof:
             if True:
+                
+                end = time.time()
+    #             print("part 1a = " + str(end - start))
+                start = end
+
+#                 data = data_iter.next()
+                x = data_iter.next()
+    #             print("data shape = " + str(data.shape))
+#                 check_gpu(run_in_jupyter)
+
+                end = time.time()
+    #             print("part 1b = " + str(end - start))
+                start = end
 
                 i += 1
 
                 netD.zero_grad()
 
+    #             x_cpu, _ = data
+#                 x_cpu = data
+#                 x = Variable(x_cpu.cuda().float())
                 x = Variable(x.cuda().float())
+#                 print("x size = " + str(x.size()))
+#                 check_gpu(run_in_jupyter)
 
                 batch_size = x.size(0)
+    #             print("batch_size = " + str(batch_size))
 
-                
+                # output of the discriminator with real data input
+                """
+                2097152^(1/3) = 128 (= one side of our cube so the
+                reconstructed cube is the same size as the original one)
+                This one just acts like an autoencoder
+                """
+#                 f_enc_X_D, f_dec_X_D, f_enc_X_size = netD(x)
                 f_enc_X_D, f_enc_X_size = netD(x)
+    
+    #             sum_real.append(x.sum())
+    #             sum_real_recon.append(f_dec_X_D.sum())
+    #             print("netD(x) outputs:")
+#                 print("f_enc_X_D size = " + str(f_enc_X_D.size()))
+#                 print("f_dec_X_D size = " + str(f_dec_X_D.size()))
+    #             print("f_dec_X_D min = " + str(f_dec_X_D.min().item()))
+    #             print("f_dec_X_D max = " + str(f_dec_X_D.max().item()))
+    #             print("f_dec_X_D mean = " + str(f_dec_X_D.mean().item()))
+    
+#                 check_gpu(run_in_jupyter)
+
+    #             print("nz = " + str(nz))
+#                 print("f_enc_X_size: {}".format(f_enc_X_size))
+                noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, noise_var)
+#                 noise = torch.FloatTensor(f_enc_X_size).normal_(0, 1)
+#                 check_gpu(run_in_jupyter)
+#                 noise = noise.cuda()
                 
-                noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, 1)
+#                 noise = tdist.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
+#                 noise = noise.sample(f_enc_X_size)
+#                 noise = noise.cuda()
+
+    #             noise = torch.cuda.FloatTensor(f_enc_X_size[0], 
+    #                                             f_enc_X_size[1], 
+    #                                             f_enc_X_size[2], 
+    #                                             f_enc_X_size[3],
+    #                                             f_enc_X_size[4]).normal_(0, 1)
+    #             noise = Variable(noise)
+
                 with torch.no_grad():
                     y = netG(noise) # freeze netG
+#                 check_gpu(run_in_jupyter)
+    #             sum_noise_gen.append(y.sum())
+    #             print("y shape = " + str(y.shape))
+    #             print("y[0] shape = " + str(y[0].shape))
+    #             print("y[0][0] shape = " + str(y[0][0].shape))
+    #             sample_cube_viz = y[0][0].cpu().detach().numpy()
+    #             print("sample_cube_viz shape = " + str(sample_cube_viz.shape))
+    
+    
+#                 # convert values smaller than 6.881349e-10 to zero
+#                 # this value is the minimum nonzero in the real cube
+#                 y[y < 6.881349e-10] == 0.0
+    
+
+                # output of the discriminator with noise input
+                # this tests discriminator 
+#                 f_enc_Y_D, f_dec_Y_D, _ = netD(y)
+                """
+                THIS SHOULD NOT BE IN NO_GRAD SINCE WE WANT
+                TO COMPUTE GRADIENT ALONG NETD
+                """
                 f_enc_Y_D, _ = netD(y)
+                
+#                 check_gpu(run_in_jupyter)
+    #             sum_noise_gen_recon.append(f_dec_Y_D.sum())
+    #             print("netD(y) outputs:")
+#                 print("f_enc_Y_D size = " + str(f_enc_Y_D.size()))
+#                 print("f_dec_Y_D size = " + str(f_dec_Y_D.size()))
+    #             print("f_dec_Y_D min = " + str(f_dec_Y_D.min().item()))
+    #             print("f_dec_Y_D max = " + str(f_dec_Y_D.max().item()))
+    #             print("f_dec_Y_D mean = " + str(f_dec_Y_D.mean().item()))
+
+
 
                 # compute biased MMD2 and use ReLU to prevent negative value
                 if mmd_kernel == "rbf":
                     mmd2_D, contrib_list = mix_rbf_mmd2(f_enc_X_D, 
                                           f_enc_Y_D, 
-                                          sigma_list,
+                                          disc_sigma_list,
                                           biased=biased_mmd,
                                           repulsive_loss = repulsive_loss, 
-                                          bounded_kernel = bounded_rbf_kernel)
+                                          lambda_repulsive = lambda_repulsive,
+                                          bounded_kernel = bounded_rbf_kernel, 
+                                          upper_bound = upper_bound, 
+                                          lower_bound = lower_bound)
                     k_xx_contrib_D.append(contrib_list[0])
                     k_yy_contrib_D.append(contrib_list[1])
                     k_xy_contrib_D.append(contrib_list[2])
@@ -1111,53 +1292,169 @@ for t in range(max_iter):
                                          f_of_Y = f_enc_Y_D)
 
 
-    #             print("mmd2_D before ReLU = " + str(mmd2_D.item()))
+#                 print("mmd2_D before ReLU = " + str(mmd2_D.item()))
                 mmd2_D_before_ReLU_list.append(mmd2_D.item())
-                mmd2_D = F.relu(mmd2_D)
-    #             print("mmd2_D after ReLU = " + str(mmd2_D.item()))
+                if relu_mmd:
+                    mmd2_D = F.relu(mmd2_D)
+                print("mmd2_D after ReLU = " + str(mmd2_D.item()))
                 mmd2_D_after_ReLU_list.append(mmd2_D.item())
 
                 # compute rank hinge loss
-                one_side_errD = one_sided(f_enc_X_D.mean(0) - f_enc_Y_D.mean(0))
-                one_side_errD_list.append(one_side_errD.item())
+    #             print('f_enc_X_D:', f_enc_X_D.size())
+    #             print('f_enc_Y_D:', f_enc_Y_D.size())
+                if lambda_rg:
+                    one_side_errD = one_sided(f_enc_X_D.mean(0) - f_enc_Y_D.mean(0))
+        #             print("one_side_errD = " + str(one_side_errD.item()))
+                else:
+                    one_side_errD = 0
+                    one_side_errD_list.append(one_side_errD)
 
                 # compute L2-loss of AE
                 """
                 Reconstruction Loss
                 """
-#               if reconstruction_loss:
+#                 if reconstruction_loss:
 #                 L2_AE_X_D = match(x.view(batch_size, -1), f_dec_X_D, dist_ae)
 #                 L2_AE_Y_D = match(y.view(batch_size, -1), f_dec_Y_D, dist_ae)
 #                 L2_AE_X_D_list.append(L2_AE_X_D.item())
 #                 L2_AE_Y_D_list.append(L2_AE_Y_D.item())
+
+
+
+    #             print("lambda_rg = " + str(lambda_rg))
+    #             print("i = " + str(i))
+    #             print("t = " + str(t))
+    #             if i <= Diter_1 and t == 0:
     
+                
+            
+        
                 if not enable_gradient_penalty and reconstruction_loss:
                     """Original MMD GAN Loss"""
-                    errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD  - lambda_AE_X * L2_AE_X_D - lambda_AE_Y * L2_AE_Y_D 
+                    errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD                             - lambda_AE_X * L2_AE_X_D - lambda_AE_Y * L2_AE_Y_D 
                 elif not enable_gradient_penalty and not reconstruction_loss:
-                    errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD
+                    errD = mmd2_D + lambda_rg * one_side_errD
+#                     errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD
+#                 elif enable_gradient_penalty and reconstruction_loss:
                 else:
+                    """
+                    calc_gradient_penalty()
+                    """
+                    # grad_norm_D = grad_norm(netD) down below.
+#                     print("grad_normD = " + str(grad_normD))
+#                     gradnorm_D = calc_gradient_penalty(real_data = x, 
+#                                                    generated_data = y, 
+#                                                    gp_weight = lambda_gradpen, 
+#                                                    netD = netD,
+#                                                       cuda = cuda,
+#                                                        kernel_choice = mmd_kernel,
+#                                                       sigma_list = sigma_list,
+#                                                       alpha_list = alpha_list,
+#                                                       f_enc_X_D = f_enc_X_D,
+#                                                       f_enc_Y_D = f_enc_Y_D)
                     gradnorm_D = calc_gradient_penalty_new(netD = netD, 
                                                        real_data = x, 
                                                        fake_data = y)
+    
+#                     print("Gradient Penalty = " + str(gradnorm_D.item()))
                     grad_norm_pen.append(gradnorm_D.item())
-                    errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD - lambda_gradpen * gradnorm_D
 
+#                 print("calc_gradient_penalty | gradnorm_D = " + str(gradnorm_D.item()))
+#                     if reconstruction_loss:
+#                     errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD \
+#                             - lambda_AE_X * L2_AE_X_D - lambda_AE_Y * L2_AE_Y_D \
+#                             - gradnorm_D #  + gradnorm_D (default)  
+#                     else:
+                    errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD                             - lambda_gradpen * gradnorm_D
+    
+#                 elif enable_gradient_penalty and not reconstruction_loss:
+#                     gradnorm_D = calc_gradient_penalty(real_data = x, 
+#                                                    generated_data = y, 
+#                                                    gp_weight = lambda_gradpen, 
+#                                                    netD = netD,
+#                                                       cuda = cuda,
+#                                                        kernel_choice = mmd_kernel,
+#                                                       sigma_list = sigma_list,
+#                                                       alpha_list = alpha_list,
+#                                                       f_enc_X_D = f_enc_X_D,
+#                                                       f_enc_Y_D = f_enc_Y_D)
+#                     grad_norm_pen.append(gradnorm_D.item())
+#                     errD = torch.sqrt(mmd2_D) + lambda_rg * one_side_errD - gradnorm_D 
+#                 else:
+#                     raise NotImplementedError
+
+                            
+
+                    """
+                    MMD / (1+ GP)
+                    """ 
+#                     print("grad_norm_d[-1] = " + str(grad_norm_D[-1].item()))
+#                     errD = (torch.sqrt(mmd2_D)/(grad_norm_D[-1]) + lambda_rg * one_side_errD \
+#                             - lambda_AE_X * L2_AE_X_D - lambda_AE_Y * L2_AE_Y_D)
+
+    #                 errD = (torch.sqrt(mmd2_D) + lambda_rg * one_side_errD \
+    #                         - lambda_AE_X * L2_AE_X_D - lambda_AE_Y * L2_AE_Y_D)/ \
+    #                         (1.0 + gradnorm_D)
+
+
+
+    #             print("errD shape = " + str(errD.shape))
+                print("errD = " + str(errD.item()))
                 errD_list.append(errD.item())
-                errD.backward(mone)
+    #             errD_list.append(errD)
+    
+                # mone = -1 * torch.tensor(1.0).cuda()
+#                 if not repulsive_loss:
+                # for original D loss function(Eq. 3 in Repulsive Loss function)
+#                 if not repulsive_loss:
+                if not repulsive_loss:
+                    print("errD mone")
+                    errD.backward(mone) 
+                elif repulsive_loss: 
+#                     print("errD one")
+#                     errD.backward(one)
+#                     print("errD mone")
+#                     errD.backward(mone) 
+                    print("errD.backward()")
+                    errD.backward()
+                else:
+                    NotImplementedError
+#                 else:
+#                 errD.backward(one) # for repulsive loss, use the original 
+#                 errD.backward()
                 optimizerD.step()
 
-            # if fixed_noise_set == 0:
+#             print("Profiler = ")
+#             print(prof)
             
-            #     fixed_noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, 1)
-            #     if model_choice == "conv_fc":
-            #         fixed_noise = fixed_noise[0]  # plot just one cube
-            #         fixed_noise = fixed_noise.view(1,-1)
-            #     print("Fixed Noise size = " + str(fixed_noise.size()))
-            #     fixed_noise = Variable(fixed_noise, 
-            #                            requires_grad=False)
-            #     fixed_noise_set = fixed_noise_set + 1
+            time_2 = time.time()  
+            time_2 = time_2 - time_1
+            time_2_list.append(time_2)
+            print(np.mean(np.array(time_2_list)))
+
+            """
+            fixed_noise was used in the original implementation for 
+            generating some image from the same noise input to see
+            the evolution
+            """
+            if fixed_noise_set == 0:
+            
+                fixed_noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, 1)
+                if model_choice == "conv_fc":
+                    fixed_noise = fixed_noise[0]  # plot just one cube
+                    fixed_noise = fixed_noise.view(1,-1)
+                print("Fixed Noise size = " + str(fixed_noise.size()))
+#                 fixed_noise = torch.cuda.FloatTensor(1, 
+#                                                     f_enc_X_size[1], 
+#                                                     f_enc_X_size[2], 
+#                                                     f_enc_X_size[3],
+#                                                     f_enc_X_size[4]).normal_(0, 1)
+                fixed_noise = Variable(fixed_noise, 
+                                       requires_grad=False)
+                fixed_noise_set = fixed_noise_set + 1
         
+
+            
             # Plotting Discriminator Plots
             if j % 2 == 0 and plotted < 1:
                 if True:
@@ -1187,17 +1484,122 @@ for t in range(max_iter):
 
 
                 if True:
+                    # plot output of the discriminator with real data input
+                    # and output of the discriminator with noise input
+                    # on the same histogram 
+                    # selecting a random cube from the batch
+                    random_batch = random.randint(0,batch_size-1)
+#                     real_ae_cube = f_dec_X_D[random_batch].cpu().view(-1,1).detach().numpy()
+#                     noise_ae_cube = f_dec_Y_D[random_batch].cpu().view(-1,1).detach().numpy()
+#                     noise_gen_cube = y[random_batch][0].cpu().view(-1,1).detach().numpy()
+#                     real_cube = x[random_batch][0].cpu().view(-1,1).detach().numpy()
+                    
+                    """
+                    Plotting the Output of the Decoder vs. Real Values
+                    for a randomly selected subcube from the minibatch
+                    """
+#                     print("\nPlotting Nominal Histogram and PDFs")
+#                     mmd_hist_plot(noise = noise_gen_cube, 
+#                                   real = real_cube, 
+#                                   recon_noise = noise_ae_cube, 
+#                                   recon_real = real_ae_cube,
+#                                   epoch = t, 
+#                                   file_name = 'hist_output_' + str(t) + '.png', 
+#                                   plot_pdf = True,
+#                                   log_plot = False,
+#                                   plot_show = plot_show_other,
+#                                   redshift_fig_folder = redshift_fig_folder)
+                    
+                    
+                    
+                    # full minibatch power spectrum plot
+#                     if dimension_choice == "2D":
+#                         real_ae_cube = f_dec_X_D.view(batch_size,1,cube_size,cube_size).cpu().detach().numpy()
+#     #                     print(real_ae_cube.shape)
+#                         noise_ae_cube = f_dec_Y_D.view(batch_size,1,cube_size,cube_size).cpu().detach().numpy()
+#     #                     print(noise_ae_cube.shape)
+#                     elif dimension_choice == "3D":
+#                         real_ae_cube = f_dec_X_D.view(batch_size,1,cube_size,cube_size,cube_size).cpu().detach().numpy()
+#     #                     print(real_ae_cube.shape)
+#                         noise_ae_cube = f_dec_Y_D.view(batch_size,1,cube_size,cube_size,cube_size).cpu().detach().numpy()
+#     #                     print(noise_ae_cube.shape)
+    
                     noise_gen_cube = y.cpu().detach().numpy()
+#                     print(noise_gen_cube.shape)
                     real_cube = x.cpu().detach().numpy()
+#                     print(real_cube.shape)
 
-                    histogram_mean_confint(noise = noise_gen_cube, 
-                                real = real_cube, 
-                                log_plot = False, 
-                                redshift_fig_folder = redshift_fig_folder,
-                                t = t,
-                                save_plot = plot_save_other,
-                                show_plot = plot_show_other)
+                    """
+                    HISTOGRAM OF THE WHOLE BATCH
+                    """
+                    print("\nPlotting WHOLE BATCH Nominal Histogram and PDFs")
+#                     hist_plot_multiple(noise = noise_gen_cube, 
+#                                 real = real_cube, 
+#                                 log_plot = False, 
+#                                 redshift_fig_folder = redshift_fig_folder,
+#                                 t = t,
+#                                 save_plot = plot_save_other,
+#                                 show_plot = plot_show_other)
 
+                    if True:
+                        histogram_mean_confint(noise = noise_gen_cube, 
+                                    real = real_cube, 
+                                    log_plot = False, 
+                                    redshift_fig_folder = redshift_fig_folder,
+                                    t = t,
+                                    save_plot = plot_save_other,
+                                    show_plot = plot_show_other)
+            
+                    """
+                    Get the encodings f_enc_X_D and f_enc_Y_D
+                    """
+#                     print("\nPlotting the Encodings f_enc_X_D and f_enc_Y_D")
+#                     encoding_hist_plot_multiple(f_enc_X_D = f_enc_X_D.cpu().detach().numpy(), 
+#                                             f_enc_Y_D = f_enc_Y_D.cpu().detach().numpy(), 
+#                                             log_plot = False, 
+#                                             redshift_fig_folder = redshift_fig_folder,
+#                                             t = t,
+#                                             save_plot = plot_save_other, 
+#                                             show_plot = plot_show_other)
+
+
+#                     """
+#                     2D Visualizations
+#                     NEEDS TRANSFORMED DATA
+#                     Inverse-transformed is below
+#                     """
+#                     visualize2d(real = real_cube, 
+#                                 fake = noise_gen_cube, 
+#                                 raw_cube_mean = sampled_subcubes.mean_raw_val, 
+#                                 scaling = inverse_transform,
+#                                 redshift_fig_folder = redshift_fig_folder,
+#                                 t = t,
+#                                 save_plot = plot_save_other, 
+#                                 show_plot = plot_show_other)
+
+
+                    print("\nTransformed Full-Minibatch Subcubes:")
+#                     print("real_ae_cube max = " + str(real_ae_cube.max()) + ", min = " + str(real_ae_cube.min()) \
+#                      + ", mean = " + str(real_ae_cube.mean()))
+#                     print("noise_ae_cube max = " + str(noise_ae_cube.max()) + ", min = " + str(noise_ae_cube.min())\
+#                          + ", mean = " + str(noise_ae_cube.mean()))
+                    print("noise_gen_cube max = " + str(noise_gen_cube.max()) + ", min = " + str(noise_gen_cube.min())                         + ", mean = " + str(noise_gen_cube.mean()))
+                    print("real_cube max = " + str(real_cube.max()) + ", min = " + str(real_cube.min())                         + ", mean = " + str(real_cube.mean()))
+                          
+                    
+                          
+                    
+                    
+                    """
+                    INVERSE TRANSFORMATION
+                    inverse transform the real and generated cubes back to normal
+                    """
+#                     real_ae_cube = inverse_transform_func(cube = real_ae_cube,
+#                                                   inverse_type = inverse_transform, 
+#                                              sampled_dataset = sampled_subcubes)
+#                     noise_ae_cube = inverse_transform_func(cube = noise_ae_cube,
+#                                                   inverse_type = inverse_transform, 
+#                                                  sampled_dataset = sampled_subcubes)
                     noise_gen_cube = inverse_transform_func(cube = noise_gen_cube,
                                                   inverse_type = inverse_transform, 
                                              sampled_dataset = sampled_subcubes)
@@ -1205,12 +1607,24 @@ for t in range(max_iter):
                                                   inverse_type = inverse_transform, 
                                              sampled_dataset = sampled_subcubes)
                     print("\nInverse Transformed Subcubes:")
+#                     print("real_ae_cube max = " + str(real_ae_cube.max()) + ", min = " + str(real_ae_cube.min()) \
+#                      + ", mean = " + str(real_ae_cube.mean()))
+#                     print("noise_ae_cube max = " + str(noise_ae_cube.max()) + ", min = " + str(noise_ae_cube.min())\
+#                          + ", mean = " + str(noise_ae_cube.mean()))
                     print("noise_gen_cube max = " + str(noise_gen_cube.max()) + ", min = " + str(noise_gen_cube.min())                         + ", mean = " + str(noise_gen_cube.mean()))
                     print("real_cube max = " + str(real_cube.max()) + ", min = " + str(real_cube.min())                         + ", mean = " + str(real_cube.mean()))
                     
 
+                    
+
+                    """
+                    Plotting the sum of values across a minibatch
+                    NEEDS INVERSE-TRANSFORMED DATA
+                    """
                     sum_real.append(real_cube.sum())
+#                     sum_real_recon.append(real_ae_cube.sum())
                     sum_noise_gen.append(noise_gen_cube.sum())
+#                     sum_noise_gen_recon.append(noise_ae_cube.sum())
                     
                     print("\nPlotting the sum of values across a minibatch")
                     plot_minibatch_value_sum(sum_real = sum_real,
@@ -1236,6 +1650,83 @@ for t in range(max_iter):
                     NEEDS INVERSE-TRANSFORMED DATA
                     """
                     print("\nPower Spectrum Comparisons")
+#                     plot_power_spec_aggregate(real_cube = real_cube,        # should be inverse_transformed
+#                                     generated_cube = noise_gen_cube,   # should be inverse_transformed
+#                                     raw_cube_mean = sampled_subcubes.mean_val, 
+#                                     save_plot = plot_save_other,
+#                                     show_plot = plot_show_other,
+#                                      redshift_fig_folder = redshift_fig_folder,
+#                                      t = t,
+#                                     threads=1, 
+#                                     MAS="CIC", 
+#                                     axis=0, 
+#                                     BoxSize=75.0/2048*cube_size,
+#                                         data_dim = dimension_choice)
+#                     plot_power_spec(real_cube = real_cube,        # should be inverse_transformed
+#                                     generated_cube = noise_gen_cube,   # should be inverse_transformed
+#                                     raw_cube_mean = sampled_subcubes.mean_val, 
+#                                     save_plot = plot_save_other,
+#                                     show_plot = plot_show_other,
+#                                      redshift_fig_folder = redshift_fig_folder,
+#                                      t = t,
+#                                     threads=1, 
+#                                     MAS="CIC", 
+#                                     axis=0, 
+#                                     BoxSize=75.0/2048*cube_size,
+#                                         data_dim = dimension_choice)
+#                     plot_power_spec2(real_cube = real_cube, 
+#                                      generated_cube = noise_gen_cube,  
+#                                     raw_cube_mean = sampled_subcubes.mean_val,
+#                                      redshift_fig_folder = redshift_fig_folder,
+#                                     s_size = 64,
+#                                      t = t,
+#                                     threads=1, 
+#                                     MAS="CIC", 
+#                                     axis=0, 
+#                                     BoxSize=75.0/2048.0*cube_size,
+#                                         data_dim = dimension_choice)
+#                     plot_power_spec_confint(real_cube = real_cube,        # should be inverse_transformed
+#                                     generated_cube = noise_gen_cube,   # should be inverse_transformed
+#                                     raw_cube_mean = sampled_subcubes.mean_val, 
+#                                     save_plot = plot_save_other,
+#                                     show_plot = plot_show_other,
+#                                      redshift_fig_folder = redshift_fig_folder,
+#                                      t = t,
+#                                     threads=1, 
+#                                     MAS="CIC", 
+#                                     axis=0, 
+#                                     BoxSize=75.0/2048*cube_size,
+#                                         data_dim = dimension_choice)
+                    
+    
+#                     print("f_enc_X_size: {}".format(f_enc_X_size))
+#                     f_enc_shape = list(f_enc_X_size)
+#                     f_enc_shape[0] = 200
+#                     f_enc_shape = tuple(f_enc_shape)
+#                     print("f_enc_X_size: {}".format(f_enc_shape))
+                    
+#                     noise_ps = torch.empty(f_enc_shape).cuda().float().normal_(0,1)
+#                     print("noise_ps shape: {}".format(noise_ps.size()))
+                    
+                    
+# #                     noise_ps = torch.cuda.FloatTensor(f_enc_shape).normal_(0, 1)
+#                     with torch.no_grad():
+#                         noise_ps = Variable(noise_ps)
+#                     y_ps = Variable(netG(noise_ps))
+#                     noise_gen_ps = y_ps.cpu().detach().numpy()
+
+#                     plot_ps_percentiles(generated_cube = noise_gen_cube,   # noise_gen_ps,   # should be inverse_transformed
+#                                         raw_cube_mean = sampled_subcubes.mean_val, 
+#                                         save_plot = plot_save_other,
+#                                         show_plot = plot_show_other,
+#                                         redshift_fig_folder = redshift_fig_folder,
+#                                         t = t,
+#                                         threads=1, 
+#                                         MAS="CIC", 
+#                                         axis=0, 
+#                                         BoxSize=75.0/2048*cube_size,
+#                                         data_dim = dimension_choice)    
+    
                     
                     with torch.no_grad():
                         plot_ps_percentiles_many(netG = netG,   # should be inverse_transformed
@@ -1289,14 +1780,259 @@ for t in range(max_iter):
                                            save_plot = plot_save_other, 
                                            show_plot = plot_show_other)
                     
-                plotted = plotted + 1
+                    
+                    """
+                    Select Random Single Cubes
+                    Subset them by taking only values greater than 0
+                    Even though they are inverse transformed, some values may be negative
+                    due to the activation function and output function used
+                    """
+                    
+#                     real_ae_cube = real_ae_cube[real_ae_cube > 0.0]
+#                     noise_ae_cube = noise_ae_cube[noise_ae_cube > 0.0]
+#                     noise_gen_cube = noise_gen_cube[noise_gen_cube > 0.0]
+#                     real_cube = real_cube[real_cube > 0.0]
 
+#                     real_ae_cube = real_ae_cube[np.nonzero(real_ae_cube)]
+#                     noise_ae_cube = noise_ae_cube[np.nonzero(noise_ae_cube)]
+#                     noise_gen_cube = noise_gen_cube[np.nonzero(noise_gen_cube)]
+#                     real_cube = real_cube[np.nonzero(real_cube)]
+#                     recon_plot = recon_plot[np.greater(recon_plot, 0)]
+                    
+#                     print("len(real_plot) - nonzero elements = " + str(len(real_plot)))
+#                     print("len(recon_plot) - nonzero elements = " + str(len(recon_plot)))
+    #                 log_nonzero_real_list.append(len(real_plot))
+    #                 log_nonzero_recon_list.append(len(recon_plot))
+
+#                     log_nonzero_recon_over_real_list.append(len(recon_plot) / len(real_plot))
+
+
+
+
+
+                    
+                    """
+                    Plotting Nominal and Log Histograms
+                    """
+                    print("\nPlotting Nominal Histogram and PDFs")
+#                     mmd_hist_plot(noise = noise_gen_cube, 
+#                                   real = real_cube, 
+#                                   recon_noise = noise_ae_cube, 
+#                                   recon_real = real_ae_cube,
+#                                   epoch = t, 
+#                                   file_name = 'hist_' + str(t) + '.png', 
+#                                   plot_pdf = False,
+#                                   log_plot = False,
+#                                   plot_show = plot_show_other,
+#                                   redshift_fig_folder = redshift_fig_folder)
+    
+#                     mmd_hist_plot(noise = noise_gen_cube, 
+#                                   real = real_cube, 
+#                                   recon_noise = noise_ae_cube, 
+#                                   recon_real = real_ae_cube,
+#                                   epoch = t, 
+#                                   file_name = 'pdf_' + str(t) + '.png', 
+#                                   plot_pdf = True,
+#                                   log_plot = False,
+#                                   plot_show = plot_show_other,
+#                                   redshift_fig_folder = redshift_fig_folder) 
+                    
+#                     """
+#                     Plotting the log histograms & PDF
+#                     """
+#                     print("\nPlotting the log histograms & PDF")
+#                     mmd_hist_plot(noise = noise_gen_cube, 
+#                                   real = real_cube, 
+#                                   recon_noise = noise_ae_cube, 
+#                                   recon_real = real_ae_cube,
+#                                   epoch = t, 
+#                                   file_name = 'hist_log_' + str(t) + '.png', 
+#                                   plot_pdf = False,
+#                                   log_plot = True,
+#                                   plot_show = plot_show_other,
+#                                   redshift_fig_folder = redshift_fig_folder)
+    
+#                     mmd_hist_plot(noise = noise_gen_cube, 
+#                                   real = real_cube, 
+#                                   recon_noise = noise_ae_cube, 
+#                                   recon_real = real_ae_cube,
+#                                   epoch = t, 
+#                                   file_name = 'pdf_log_' + str(t) + '.png', 
+#                                   plot_pdf = True,
+#                                   log_plot = True,
+#                                   plot_show = plot_show_other,
+#                                   redshift_fig_folder = redshift_fig_folder)                     
+
+#                 except:
+#                     pass
+                
+                plotted = plotted + 1
+                
+                
+                
+#             if plotted_2 < 1 and t % 5 == 0 and t > gen_iterations_limit:
+            if plotted_2 < 1 and t % 1 == 0 and dimension_choice == "3D" and plot_3d_cubes == True:
+                # reshaping DOESNT WORK due to nonzero() -> reshaping 1D to 3D with cube_size edges
+#                 # so just getting them again works.
+                real_ae_cube = f_dec_X_D[random_batch].cpu().view(cube_size,cube_size,cube_size).detach().numpy()
+                noise_ae_cube = f_dec_Y_D[random_batch].cpu().view(cube_size,cube_size,cube_size).detach().numpy()
+                noise_gen_cube = y[random_batch][0].cpu().detach().numpy()
+                real_cube = x[random_batch][0].cpu().detach().numpy()
+                y_fixed = netG(fixed_noise)[0][0].cpu().detach().numpy()
+                
+                # inverse transform
+                real_ae_cube = inverse_transform_func(cube = real_ae_cube,
+                                                  inverse_type = inverse_transform, 
+                                             sampled_dataset = sampled_subcubes)
+                noise_ae_cube = inverse_transform_func(cube = noise_ae_cube,
+                                                  inverse_type = inverse_transform, 
+                                             sampled_dataset = sampled_subcubes)
+                noise_gen_cube = inverse_transform_func(cube = noise_gen_cube,
+                                                  inverse_type = inverse_transform, 
+                                             sampled_dataset = sampled_subcubes)
+                real_cube = inverse_transform_func(cube = real_cube,
+                                                  inverse_type = inverse_transform, 
+                                             sampled_dataset = sampled_subcubes)
+                y_fixed = inverse_transform_func(cube = y_fixed,
+                                                  inverse_type = inverse_transform, 
+                                             sampled_dataset = sampled_subcubes)
+                
+                # transform to log_scale01
+                log_01_scale = "log_scale_01"
+                real_ae_cube = transform_func(cube = real_ae_cube,
+                                               inverse_type = log_01_scale,
+                                               self = sampled_subcubes)
+                noise_ae_cube = transform_func(cube = noise_ae_cube,
+                                               inverse_type = log_01_scale,
+                                               self = sampled_subcubes)
+                noise_gen_cube = transform_func(cube = noise_gen_cube,
+                                               inverse_type = log_01_scale,
+                                               self = sampled_subcubes)
+                real_cube = transform_func(cube = real_cube,
+                                               inverse_type = log_01_scale,
+                                               self = sampled_subcubes)
+                y_fixed = transform_func(cube = y_fixed,
+                                               inverse_type = log_01_scale,
+                                               self = sampled_subcubes)
+                
+                
+#                 print("y_fixed shape = " + str(y_fixed.shape))
+#                 print("real_ae_cube shape = " + str(real_ae_cube.shape))
+#                 print("noise_ae_cube shape = " + str(noise_ae_cube.shape))
+#                 print("noise_gen_cube shape = " + str(noise_gen_cube.shape))
+#                 print("real_cube shape = " + str(real_cube.shape))
+                
+            
+            
+                # Plot the 3D Cubes
+                print("\nFixed Noise Input Cube")
+                visualize_cube(cube=y_fixed,      ## array name
+                                         edge_dim=real_ae_cube.shape[0],        ## edge dimension (128 for 128 x 128 x 128 cube)
+                                         start_cube_index_x=0,
+                                         start_cube_index_y=0,
+                                         start_cube_index_z=0,
+                                         fig_size=(10,10),
+                                         #stdev_to_white=-2,
+                                         norm_multiply=viz_multiplier,
+                                            size_magnitude = scatter_size_magnitude,
+#                                          color_map="Blues",
+#                                          plot_show = plot_show_3d,
+#                                          plot_save = plot_save_3d,
+                                         save_fig = redshift_3dfig_folder + 'fixed_noise_' + str(t) + '.png',
+                      raw_cube_max = sampled_subcubes.max_raw_val,
+                              inverse_transform = inverse_transform)                
+
+#                 print("\nReconstructed, AutoEncoder Generated Real Cube")
+# #                 recon_real_viz = 
+#                 visualize_cube(cube=real_ae_cube,      ## array name
+#                                          edge_dim=real_ae_cube.shape[0],        ## edge dimension (128 for 128 x 128 x 128 cube)
+#                                          start_cube_index_x=0,
+#                                          start_cube_index_y=0,
+#                                          start_cube_index_z=0,
+#                                          fig_size=(10,10),
+#                                          #stdev_to_white=-2,
+#                                          norm_multiply=viz_multiplier,
+#                                             size_magnitude = scatter_size_magnitude,
+# #                                          color_map="Blues",
+# #                                          plot_show = plot_show_3d,
+# #                                plot_save = plot_save_3d,
+#                                          save_fig = redshift_3dfig_folder + 'recon_ae_real_' + str(t) + '.png',
+#                       raw_cube_max = sampled_subcubes.max_raw_val,
+#                               inverse_transform = inverse_transform)
+                
+#                 print("\nReconstructed, AutoEncoder Generated Noise-Input Cube")
+# #                 recon_fake_viz = 
+#                 visualize_cube(cube=noise_ae_cube,      ## array name
+#                                          edge_dim=noise_ae_cube.shape[0],        ## edge dimension (128 for 128 x 128 x 128 cube)
+#                                          start_cube_index_x=0,
+#                                          start_cube_index_y=0,
+#                                          start_cube_index_z=0,
+#                                          fig_size=(10,10),
+#                                          #stdev_to_white=-2,
+#                                          norm_multiply=viz_multiplier,
+#                                             size_magnitude = scatter_size_magnitude,
+# #                                          color_map="Blues",
+# #                                          plot_show = plot_show_3d,
+# #                                plot_save = plot_save_3d,
+#                                          save_fig = redshift_3dfig_folder + 'recon_ae_noisegen_' + str(t) + '.png',
+#                       raw_cube_max = sampled_subcubes.max_raw_val,
+#                               inverse_transform = inverse_transform)
+                
+                print("\nNoise-Input Generated Cube")
+#                 sample_viz = 
+                visualize_cube(cube=noise_gen_cube,      ## array name
+                                         edge_dim=noise_gen_cube.shape[0],        ## edge dimension (128 for 128 x 128 x 128 cube)
+                                         start_cube_index_x=0,
+                                         start_cube_index_y=0,
+                                         start_cube_index_z=0,
+                                         fig_size=(10,10),
+                                         #stdev_to_white=-2,
+                                         norm_multiply=viz_multiplier,
+                                            size_magnitude = scatter_size_magnitude,
+#                                          color_map="Blues",
+#                                          plot_show = plot_show_3d,
+#                                plot_save = plot_save_3d,
+                                         save_fig = redshift_3dfig_folder + 'noisegen_' + str(t) + '.png',
+                      raw_cube_max = sampled_subcubes.max_raw_val,
+                              inverse_transform = inverse_transform)
+                
+                print("\nReal Cube")
+#                 real_viz = 
+                visualize_cube(cube=real_cube,      ## array name
+                                         edge_dim=real_cube.shape[0],        ## edge dimension (128 for 128 x 128 x 128 cube)
+                                         start_cube_index_x=0,
+                                         start_cube_index_y=0,
+                                         start_cube_index_z=0,
+                                         fig_size=(10,10),
+                                         #stdev_to_white=-2,
+                                         norm_multiply=viz_multiplier,
+                                            size_magnitude = scatter_size_magnitude,
+#                                          color_map="Blues",
+#                                          plot_show = plot_show_3d,
+#                                plot_save = plot_save_3d,
+                                         save_fig = redshift_3dfig_folder +'real_' + str(t) + '.png',
+                      raw_cube_max = sampled_subcubes.max_raw_val,
+                              inverse_transform = inverse_transform)
+
+#             sample_viz.show()
+
+                plotted_2 = plotted_2 + 1 # to limit one 3d plotting per epoch
+        
+
+        
         print("Finished optimizing over NetD \n")
 
 
         # ---------------------------
         #        Optimize over NetG
         # ---------------------------
+        """
+        Because i is increased in each training loop for the
+        discriminitor, the below condition of if i == len(trn_loader)
+        is True in every epoch.
+        Should an i = 0 be added to the beginning of the netG optimization?
+        Look at paper to see how the training method is.
+        """
         print("Optimize over NetG")
         for p in netD.parameters():
             p.requires_grad = False
@@ -1313,6 +2049,14 @@ for t in range(max_iter):
             except:
                 pass
             
+#             try:
+#                 if mmd2_D.item() <= 0.0 and mmd2_D_train_limit == True:
+#                     Giters = 5
+#                     print("Increasing the number of training iterations for the generator because MMD_D <= 0")
+#                     break
+#             except:
+#                 pass
+            
             print("len(trn_loader) = " + str(len(trn_loader)))
             if i == len(trn_loader):
                 print("Breaking from the Generator training loop")
@@ -1325,13 +2069,27 @@ for t in range(max_iter):
             i += 1
             netG.zero_grad()
 
+#             x_cpu, _ = data
+#             x_cpu = data
+#             x = Variable(x_cpu.cuda().float())
             x = Variable(x.cuda().float())
             batch_size = x.size(0)
 
+            # output of discriminator with real input
+#             f_enc_X, f_dec_X, f_enc_X_size = netD(x)
+#             with torch.no_grad():
             f_enc_X, f_enc_X_size = netD(x)
 
-            noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, 1)
+            noise = torch.cuda.FloatTensor(f_enc_X_size).normal_(0, noise_var)
             
+#             noise = torch.cuda.FloatTensor(f_enc_X_size[0], 
+#                                             f_enc_X_size[1], 
+#                                             f_enc_X_size[2], 
+#                                             f_enc_X_size[3],
+#                                             f_enc_X_size[4]).normal_(0, 1)
+#             noise = Variable(noise)
+            
+            # output of the generator with noise input
             y = netG(noise)
             
             # convert values smaller than 6.881349e-10 to zero
@@ -1339,16 +2097,19 @@ for t in range(max_iter):
 #             y[y < 6.881349e-10] == 0.0
 
             # output of the discriminator with noise input
+#             f_enc_Y, f_dec_Y, _ = netD(y)
             f_enc_Y, _ = netD(y)
 
             # compute biased MMD2 and use ReLU to prevent negative value
             if mmd_kernel == "rbf":
                 mmd2_G, contrib_list = mix_rbf_mmd2(f_enc_X, 
                                       f_enc_Y, 
-                                      sigma_list, 
+                                      gen_sigma_list, 
                                       biased = biased_mmd,
                                       repulsive_loss = False, 
-                                      bounded_kernel = False)
+                                      bounded_kernel = False, 
+                                      upper_bound = False, 
+                                      lower_bound = False)
                 k_xx_contrib_G.append(contrib_list[0])
                 k_yy_contrib_G.append(contrib_list[1])
                 k_xy_contrib_G.append(contrib_list[2])
@@ -1392,22 +2153,27 @@ for t in range(max_iter):
                 mmd2_G = linear_mmd2(f_enc_X, f_enc_Y)
     
             mmd2_G_before_ReLU_list.append(mmd2_G)
-            mmd2_G = F.relu(mmd2_G)
+            if relu_mmd:
+                mmd2_G = F.relu(mmd2_G)
             mmd2_G_after_ReLU_list.append(mmd2_G)
 
             # compute rank hinge loss
             one_side_errG = one_sided(f_enc_X.mean(0) - f_enc_Y.mean(0))
             one_side_errG_list.append(one_side_errG)
 
-            errG = torch.sqrt(mmd2_G) + lambda_rg * one_side_errG 
+            errG = mmd2_G + lambda_rg * one_side_errG 
+#             errG = torch.sqrt(mmd2_G) + lambda_rg * one_side_errG 
 #             errG = torch.sqrt(mmd2_G) + lambda_rg * one_side_errG \
 #                     + calc_gradient_penalty(x.data, y.data, lambda_gradpen)
             print("errG = " + str(errG.item()))
+#             print("one = ") + str(one)
             errG_list.append(errG.item())
             
         
             errG.backward(one)
             optimizerG.step()
+
+#             gen_iterations += 1
             
             if plotted_3 < 1:
                 """
@@ -1436,9 +2202,12 @@ for t in range(max_iter):
         print("run_time = " + str(run_time), flush = True)
         
         try:
+#             print('[%3d/%3d][%3d/%3d] [%5d] (%.2f m) MMD2_D %.10f hinge %.6f L2_AE_X %.6f L2_AE_Y %.6f loss_D %.6f Loss_G %.6f f_enc_X_D.mean() %.6f f_enc_Y_D.mean() %.6f |gD| %.10f |gG| %.10f'
             print('[%3d/%3d][%3d/%3d] [%5d] (%.2f m) MMD2_D %.10f MMD2_G %.10f hinge %.6f loss_D %.6f Loss_G %.6f f_enc_X_D.mean() %.6f f_enc_Y_D.mean() %.6f |gD| %.10f |gG| %.10f'
                   % (t, max_iter, i, len(trn_loader), gen_iterations, run_time,
-                     mmd2_D_before_ReLU_list[-1], mmd2_G_before_ReLU_list[-1], one_side_errD.item(),
+#                      mmd2_D.item(), one_side_errD.item(),
+                     mmd2_D_before_ReLU_list[-1], mmd2_G_before_ReLU_list[-1], one_side_errD_list[-1],
+#                      L2_AE_X_D.item(), L2_AE_Y_D.item(),
                      errD.item(), errG.item(),
                      f_enc_X_D.mean().item(), f_enc_Y_D.mean().item(),
                      grad_norm(netD), grad_norm(netG)))
@@ -1449,14 +2218,18 @@ for t in range(max_iter):
 
         
         # plotting gradient norms for monitoring
+#         if enable_gradient_penalty:
+#             # from calc_gradient_penalty()
+#             grad_norm_D.append(gradnorm_D.item())
+#         else:
         grad_normD = grad_norm(netD)
         grad_norm_D.append(grad_normD)
          
-        try:
-            grad_norm_G.append(grad_norm(netG))
-        except:
-            grad_norm_G.append(0.0)
-            pass
+#         try:
+        grad_norm_G.append(grad_norm(netG))
+#         except:
+#             grad_norm_G.append(0.0)
+#             pass
         
         # embedding means
         f_enc_X_D_mean.append(f_enc_X_D.mean().item())
@@ -1531,6 +2304,12 @@ for t in range(max_iter):
                        '{0}/optG_iter_{1}.pth'.format(model_save_folder, t))
             torch.save(optimizerD.state_dict(), 
                        '{0}/optD_iter_{1}.pth'.format(model_save_folder, t))
+        
+        
+
+
+# In[ ]:
+
 
 print("TRAINING DONE!")
 
