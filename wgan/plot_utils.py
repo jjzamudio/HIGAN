@@ -427,7 +427,7 @@ def histogram_mean_confint(noise, real, log_plot,  t, save_plot, show_plot, adju
 #     bins = np.linspace(plot_min, 0.5, 500)
     
     if d2 == False:
-        bins = np.linspace(plot_min, plot_max, 500)
+        bins = np.linspace(plot_min, plot_max, 80)
     else:
         bins = np.linspace(plot_min, plot_max, 80)
         
@@ -809,7 +809,10 @@ def plot_grid_3D(G, size = (1,6), plot_show=True, save='', fig_size=(20,10)):
            
     plt.close()
 
-def histogram_mean_confint_(G, nsamples,  save_plot='', show_plot = True, 
+
+
+
+def D1_pdf(G, nsamples, HOD='', save_plot='', show_plot = True, 
                            adjust=False, d2=False, fig_size=(14,8)):
     """
     Plots the mean and confidence intervals for each bin of the histogram
@@ -826,7 +829,7 @@ def histogram_mean_confint_(G, nsamples,  save_plot='', show_plot = True,
     #plot_max = max(float(noise.max()), float(real.max()))
     #plt.xlim(0.01, 0.5)
     if trans =='log_max':
-        plot_min = -0.4
+        plot_min = -0.3
         plot_max = 0.6
     
     else:
@@ -836,20 +839,42 @@ def histogram_mean_confint_(G, nsamples,  save_plot='', show_plot = True,
         
     plt.xlim(plot_min, plot_max)
     plt.ylim(0, 20)
-    font_size = 14
+    font_size = 18
     
 
     dataloader = torch.utils.data.DataLoader(dataset, batch_size = 1, shuffle=True, num_workers=0, drop_last = True)
     data_iter = iter(dataloader)
     
     if d2 == False:
-        bins = np.linspace(plot_min, plot_max, 500)
+        bins = np.linspace(plot_min, plot_max, 80)
     else:
         bins = np.linspace(plot_min, plot_max, 80)
         
     for m in range(nsamples): 
         if m > 0 and m % 32 == 0:
             print(m, '/', nsamples)
+            
+        if HOD != '':
+                    
+            hod = None
+            while hod is None:
+                try:
+                    x = random.randrange(0, 2048, 64)
+                    y = random.randrange(0, 2048, 64)
+                    z = random.randrange(0, 2048, 64)
+                    #hod = torch.load(HOD + 'lower_corner_' + str(x) + '_'+ str(y) + '_' + str(z) + '.pkl')
+                    hod = np.load(HOD + 'lower_corner_' + str(x) + '_'+ str(y) + '_' + str(z) + '.pkl')
+                except:
+                    pass
+                
+            hod = np.array(hod)
+            hod = data_transform(hod,'log_max', d2=False, inverse=False, hod=False)
+            #print(hod.shape)
+            hod = hod.flatten()
+            
+            bin_vals_hod, _ , _ = plt.hist(hod, bins = bins, 
+                             color = "b" , log = False, alpha = 0.00, 
+                             normed=True)
         
         real = data_iter.next().numpy()
         
@@ -859,23 +884,31 @@ def histogram_mean_confint_(G, nsamples,  save_plot='', show_plot = True,
         real = real[0][0].flatten()
         fake = fake[0][0].flatten()
         
+        
         if adjust == True:
             fake = adjust_cube(fake, log=True)
 
         bin_vals_real, _ , _ = plt.hist(real, bins = bins, 
                                  color = "b" , log = False, alpha = 0.00, 
-                                 normed=True, label='Real')
+                                 normed=True)
         bin_vals_noise, _ , _ = plt.hist(fake, bins = bins, 
                              color = "b" , log = False, alpha = 0.00, 
-                             normed=True, label='Generated')
+                             normed=True)
 
         if m == 0:
             bin_vals_m_real = bin_vals_real
             bin_vals_m_noise = bin_vals_noise
+            if HOD != '':
+                 bin_vals_m_hod = bin_vals_hod
+                
         else:
             bin_vals_m_real = np.column_stack((bin_vals_m_real,bin_vals_real))
             bin_vals_m_noise = np.column_stack((bin_vals_m_noise,bin_vals_noise))
-
+            
+            if HOD != '':
+                bin_vals_m_hod = np.column_stack((bin_vals_m_hod, bin_vals_hod))
+                
+            
     # take column wise mean
     col_means_real = np.mean(bin_vals_m_real, axis = 1)
     col_means_noise = np.mean(bin_vals_m_noise, axis = 1)
@@ -883,31 +916,48 @@ def histogram_mean_confint_(G, nsamples,  save_plot='', show_plot = True,
     # calculate column wise stddev
     col_stddev_real = np.std(bin_vals_m_real, axis = 1)
     col_stddev_noise = np.std(bin_vals_m_noise, axis = 1)
+    
+    if HOD != '':
+        col_means_hod = np.mean(bin_vals_m_hod, axis = 1)
+        col_stddev_hod = np.std(bin_vals_m_hod, axis = 1)
 
     # plot means and confidence interval
     bins = bins[1:]
+    #if m==0:
+    lab1='Real'
+    lab2='WGAN generated'
+    lab3='HOD generated'
+        
     plt.errorbar(x = bins, 
                  y = col_means_real, 
-                 yerr = col_stddev_real, linestyle=None, marker='o',capsize=3, 
-                 markersize = 2, color = "blue", alpha = 0.25)
+                 yerr = col_stddev_real, linestyle=None, marker='o',capsize=4, 
+                 markersize = 2, color = "blue", alpha = 0.75, label=lab1)
     plt.errorbar(x = bins, 
                  y = col_means_noise, 
-                 yerr = col_stddev_noise, linestyle=None, marker='o',capsize=3, 
-                 markersize = 2, color = "red", alpha = 0.25)
-
+                 yerr = col_stddev_noise, linestyle=None, marker='o',capsize=4, 
+                 markersize = 2, color = "red", alpha = 0.75, label=lab2)
+    
+    if HOD != '':
+            plt.errorbar(x = bins, 
+                 y = col_means_hod, 
+                 yerr = col_stddev_hod, linestyle=None, marker='o',capsize=4, 
+                 markersize = 2, color = "black", alpha = 0.95, label=lab3)
+        
+        
     #if d2 == False:
     #    plt.xlim(-0.4, 0.6)
     plt.ylim(0, 8)
 
     plt.tick_params(axis='both', labelsize=font_size)
-    plt.title('Empirical Distributions of Real (blue) and Generated Samples (red)', fontsize=font_size)
-#     plt.legend(fontsize=font_size)
+    #plt.title('Empirical Distributions of Real (blue) and Generated Samples (red)', fontsize=font_size)
+    plt.legend(fontsize=font_size, loc = 'best')
+    plt.xlabel('Hydrogen mass', fontsize=font_size)
+    plt.ylabel('Density', fontsize=font_size)
     
     if save_plot!='':
-        plt.savefig(save_plot+ "hist_meanstddev_.png", bbox_inches='tight', dpi = 200) 
+        plt.savefig(save_plot+ "pdfs.png", bbox_inches='tight', dpi = 200) 
     
     if show_plot:
         plt.show() 
         
     plt.close()
-
