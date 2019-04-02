@@ -21,6 +21,9 @@ std_l5 = 1.5777067
 max_l5 =22.199614
 max_l5 = 21.451267
 
+max_h5=313801066.85503834
+max_lh5=np.log10(max_h5)
+
 mean_5_2d = 14280.155
 std_5_2d = 89914.586
 max_5_2d = 47676240
@@ -194,6 +197,23 @@ def power_spectrum_np_2d(cube, mean_raw_cube, SubBoxSize):
     return k, Pk
 
 
+def save_samples(G, folder, nsamples, transform = True):
+    
+    for i in range(nsamples):
+        if i % 1500 == 0 and i>0:
+            print(i, '/', nsamples)
+    
+        noise = torch.FloatTensor(1, 100, 1 , 1, 1).normal_(0, std_z)
+        fake = G(Variable(noise)).detach().numpy()
+        fake = fake[0][0]
+
+        if transform == True:
+            fake = data_transform(fake, trans, inverse = True)
+
+        torch.save(obj = fake, f = folder + "sample_" + str(i) + ".pickle")
+        
+    return
+
 
 ##https://github.com/EmilienDupont/wgan-gp/blob/master/training.py
 
@@ -322,13 +342,17 @@ class HydrogenDataset(Dataset):
 
 
 
-def data_transform(sample, transform, d2=False, inverse=False):
+def data_transform(sample, transform, d2=False, inverse=False, hod=False):
     e = 1e-2
     em = 1
     
+    
     if transform == 'log_max':
-        if inverse == False:
+        if inverse == False and hod == False:
             sample = np.log10(sample + e) / (np.log10(max_5) - em)
+        elif inverse == False and hod == True:
+                sample = np.log10(sample + e) / (max_lh5 - em)
+                
         else:
             sample =10**(sample * (np.log10(max_5) - em)) - e
             
@@ -343,6 +367,18 @@ def data_transform(sample, transform, d2=False, inverse=False):
         
     
     return sample
+
+
+def data_transform_2d(sample, inverse=False, hod=False):
+    e = 1e-2
+    em = 1
+    
+    
+    
+        
+    
+    return sample
+
 
 
 
