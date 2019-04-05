@@ -49,6 +49,7 @@ def define_test(s_test, s_train):
 def check_coords(test_coords, train_coords):
     valid = True
     for i in ['x','y','z']:
+        
         r=(max(test_coords[i][0], 
                train_coords[i][0]), 
            min(test_coords[i][1],
@@ -289,7 +290,7 @@ def _gradient_penalty_2d(D,real_data, generated_data, gp_weight):
 class HydrogenDataset(Dataset):
     """Hydrogen Dataset"""
 
-    def __init__(self, part, datapath, s_sample,  transform, d2=False, mode=True):
+    def __init__(self, part, datapath, s_sample,  transform, d2=False, mode=True, validation=False):
         """
         Args:
             h5_file (string): name of the h5 file with 32 sampled cubes.
@@ -336,48 +337,45 @@ class HydrogenDataset(Dataset):
         if self.d2 == False:
             sample = sample.reshape((1, self.s_sample, self.s_sample, self.s_sample))
             #sample = sample.reshape((1, self.s_sample, self.s_sample))
+        elif self.d2 == True:
+              sample = sample.reshape((1, self.s_sample, self.s_sample))
+            
 
         return torch.tensor(sample)
 
 
 
 
-def data_transform(sample, transform, d2=False, inverse=False, hod=False):
+def data_transform(sample, transform, d2=False, inverse=False):
     e = 1e-2
     em = 1
     
-    
-    if transform == 'log_max':
-        if inverse == False and hod == False:
-            sample = np.log10(sample + e) / (np.log10(max_5) - em)
-        elif inverse == False and hod == True:
-                sample = np.log10(sample + e) / (max_lh5 - em)
-                
-        else:
-            sample =10**(sample * (np.log10(max_5) - em)) - e
+    if d2==False:
+        if transform == 'log_max':
+            if inverse == False:
+                sample = np.log10(sample + e) / (np.log10(max_5) - em)
+
+            else:
+                sample =10**(sample * (np.log10(max_5) - em)) - e
             
-    elif transform == 'log_max_p':
-        if inverse == False:
-            sample = np.log(sample + 1) / (max_l5)
+        elif transform == 'log_max_p':
+            if inverse == False:
+                sample = np.log(sample + 1) / (max_l5)
+            else:
+                sample =np.exp(sample * max_l5) - 1
+    
         else:
-            sample =np.exp(sample * max_l5) - 1
+            print('Mode not implemented')
     
-    else:
-        print('Mode not implemented')
-        
+    elif d2==True:
+        if inverse==False:
+            sample = np.log(sample) / max_l5_2d
+        else:
+            sample = np.exp(sample * max_l5_2d)
     
     return sample
 
 
-def data_transform_2d(sample, inverse=False, hod=False):
-    e = 1e-2
-    em = 1
-    
-    
-    
-        
-    
-    return sample
 
 
 

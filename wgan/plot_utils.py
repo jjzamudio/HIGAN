@@ -304,9 +304,9 @@ def visualize2d(real, fake, log=False, save='', t='', show_plot=True):
     plt.close()
     #plt.show()  
 
-def visualize2d_2d(real, fake, log=False, save='', t='', show_plot=True):
-    min_= -0.0001
-    max_= 0.3
+def visualize2d_2d(real, fake, log=False, save='', t='', show_plot=False):
+    min_= 0.1
+    max_= 0.65
     
     #min_= 0
     #max_= 0.22
@@ -426,12 +426,12 @@ def histogram_mean_confint(noise, real, log_plot,  t, save_plot, show_plot, adju
 #     bins = np.linspace(0, 0.5, 500)
 #     bins = np.linspace(plot_min, 0.5, 500)
     
-    if d2 == False:
-        bins = np.linspace(plot_min, plot_max, 80)
+    if d2 == True:
+        bins = np.linspace(plot_min, plot_max, 120)
     else:
         bins = np.linspace(plot_min, plot_max, 80)
         
-    for m in range(min(batch_size, 64)):
+    for m in range(min(batch_size, 16)):
 
         #if len(real.shape) == 5:
         real_viz = real[m][0].flatten()
@@ -473,18 +473,18 @@ def histogram_mean_confint(noise, real, log_plot,  t, save_plot, show_plot, adju
     plt.errorbar(x = bins, 
                  y = col_means_real, 
                  yerr = col_stddev_real, linestyle=None, marker='o',capsize=3, 
-                 markersize = 2, color = "blue", alpha = 0.25)
+                 markersize = 2, color = "blue", alpha = 0.75)
     plt.errorbar(x = bins, 
                  y = col_means_noise, 
                  yerr = col_stddev_noise, linestyle=None, marker='o',capsize=3, 
-                 markersize = 2, color = "red", alpha = 0.25)
+                 markersize = 2, color = "red", alpha = 0.75)
 
     if d2 == False:
-        plt.xlim(-0.4, 0.6)
-        plt.ylim(0, 7)
+        plt.xlim(0, 0.7)
+        plt.ylim(0, 8)
     else:
         plt.xlim(0, 0.8)
-        #plt.ylim(0, 10)
+        plt.ylim(0, 13)
         
     plt.tick_params(axis='both', labelsize=font_size)
     plt.title('Empirical Distributions of Real (blue) and Generated Samples (red)', fontsize=font_size)

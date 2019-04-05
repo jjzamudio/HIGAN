@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import pandas as pd
 from models import DCGAN_G_2d, DCGAN_D_2d, weights_init
-from wgan_utils import check_coords, power_spectrum_np_2d, _gradient_penalty_2d,  HydrogenDataset, get_samples
+from wgan_utils import check_coords, power_spectrum_np_2d, _gradient_penalty_2d,  HydrogenDataset, get_samples, data_transform
 from plot_utils import plot_loss, visualize_cube,  histogram_mean_confint, visualize2d_2d, plot_power_spec
 
 #Stats for 2d cubes (obtained by bootstrsaping, check 00_data_exploration.ipynb)
@@ -36,19 +36,19 @@ max_l5_2d = 17.636091
 if __name__=="__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--redshift', required=True, help='Dataset to use')
+
     parser.add_argument('--datapath', required=True, help='path to dataset')
     parser.add_argument('--n_samples', type=int, required=True, help='Number of samples')
     parser.add_argument('--s_sample', type=int, default=64, help='Size of samples')
-    parser.add_argument('--workers', type=int, help='number of data loading workers', default=0)
+    parser.add_argument('--workers', type=int, default=0, help='number of data loading workers')
     parser.add_argument('--batchSize', type=int, default=32, help='input batch size')
     parser.add_argument('--epoch_st', type=int, default=0, help='Number of epoch to start')
     parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
     parser.add_argument('--ngf', type=int, default=64)
     parser.add_argument('--ndf', type=int, default=64)
-    parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
-    parser.add_argument('--lrD', type=float, default=0.0005, help='learning rate for Critic, default=0.00005')
-    parser.add_argument('--lrG', type=float, default=0.0005, help='learning rate for Generator, default=0.00005')
+    parser.add_argument('--niter', type=int, default=25, help='number of epochs to train')
+    parser.add_argument('--lrD', type=float, default=0.0005, help='learning rate for Critic, default=0.0005')
+    parser.add_argument('--lrG', type=float, default=0.0005, help='learning rate for Generator, default=0.0005')
     parser.add_argument('--lambda_', type=float, default=10, help='Parameter for Gradient penalty')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
     parser.add_argument('--beta2', type=float, default=0.9, help='beta1 for adam. default=0.9')
@@ -60,8 +60,10 @@ if __name__=="__main__":
     parser.add_argument('--Diters', type=int, default=5, help='number of D iters per each G iter')
     parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
     parser.add_argument('--experiment', default=None, help='Where to store samples and models')
+    parser.add_argument('--fixed', action='store_true', help='Use fixed samples' )
     opt = parser.parse_args()
     print(opt)
+   
    
      
     n_samples = int(opt.n_samples)
@@ -102,24 +104,25 @@ if __name__=="__main__":
         
     device = torch.device("cuda" if opt.cuda else "cpu")
     
-
-    #redshift, datapath, s_test, s_sample, nsamples,transform, rotate
-    dataset = HydrogenDataset(redshift='5.0',
-                              datapath=opt.datapath,
-                                s_test = 1024, 
-                                s_sample = s_sample, 
-                                nsamples = n_samples, 
-                                transform='log_max',
-                                rotate=False,
-                                d2 = True)
+ 
+    partition = {'train': [x for x in range(0, n_samples)]}
     
-
+    dataset = HydrogenDataset(part = partition,
+                              datapath=opt.datapath,
+                                s_sample = s_sample, 
+                                transform='log_max',
+                                d2= True ,
+                                mode = opt.fixed)
+    shuff = True
+    if opt.fixed == False:
+        shuff = False
     dataloader = torch.utils.data.DataLoader(dataset, 
                                              batch_size = batchSize,
-                                             shuffle=False, 
+                                             shuffle = shuff, 
                                              num_workers=int(opt.workers),
                                             drop_last = True)
-    
+
+
     print(netG)
     print(netD)
     
@@ -187,7 +190,7 @@ if __name__=="__main__":
             for p in netD.parameters(): # reset requires_grad
                 p.requires_grad = True # they are set to False below in netG update
                
-            if gen_iterations < 5 or gen_iterations % 500 == 0:
+            if gen_iterations < 3 or gen_iterations % 500 == 0:
                 Diters = 100
             else:
                 Diters = opt.Diters
@@ -281,9 +284,11 @@ if __name__=="__main__":
                     fake = netG(Variable(fixed_noise))
                     fake = np.array(fake)
                     real_cpu = np.array(real_cpu)
-    
-                plot_power_spec((np.exp(fake * max_l5_2d) -1), mean_5_2d, s_size=s_sample, log_scale=True, BoxSize=(75.0/2048.0)*s_sample,
-                               save_plot=opt.experiment, t=gen_iterations, d2 = True)
+                    fake_i = data_transform(fake, transform='log_max', d2=True, inverse=True)
+                    #print(fake.shape)
+                    
+                plot_power_spec(fake_i, mean_5_2d, s_size=s_sample, log_scale=True, BoxSize=(75.0/2048.0)*s_sample,
+                              save_plot=opt.experiment, t=gen_iterations, d2 = True)
                 visualize2d_2d(np.array(real_cpu), np.array(fake), log= False, save=opt.experiment, t=gen_iterations)
                 
                 #plot_densities(np.array(fake), np.array(real_cpu), num_plots = 8, log_=False) 
