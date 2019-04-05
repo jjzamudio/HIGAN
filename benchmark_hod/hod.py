@@ -29,6 +29,50 @@ sample_edge = 2048
 SAMPLE_EDGE = 2048
 subsample_edge = 64
 
+#################################
+## DENSITY PROFILING FUNCTIONS ##
+#################################
+
+def write_mhi_per_particle(df, n_particles):
+    df["mhi_per_part"] = df["HI_mass"].apply(lambda x: x/n_particles)
+    return df
+
+def get_particle_position_density(df, n_particles, epsilon=1e-3):
+    num_halos = df.shape[0]
+    n_particles = int(n_particles)
+    center_x, center_y, center_z = df["position_x"], df["position_y"], df["position_z"]
+    U = np.random.rand(num_halos, n_particles)
+    V = np.random.rand(num_halos, n_particles)
+    W = np.random.rand(num_halos, n_particles)
+    print ("random numbers generated.")
+    r = epsilon*(np.power(np.array(df["radius"]).reshape(-1,1)/epsilon, U)) # voxel r
+    phi = np.multiply(np.ones((num_halos, 1)), 2*np.pi*V)
+    theta = np.multiply(np.ones((num_halos, 1)), np.arccos(-1+2*W))
+    print ("r, phi, theta generated.")
+    x = np.array(center_x).reshape(-1,1) + np.multiply(np.multiply(r, np.sin(theta)), np.cos(phi))
+    y = np.array(center_y).reshape(-1,1) + np.multiply(np.multiply(r, np.sin(theta)), np.sin(phi))
+    z = np.array(center_z).reshape(-1,1) + np.multiply(r, np.cos(theta))
+    print ("x, y, z generated. stacking started.")
+    particles_in_halos = np.stack((x,y,z), axis=2)
+    return particles_in_halos
+
+def get_dens_list(df, n_particles):
+    position_density = []
+    for i in range(len(df)):
+        density = df["mhi_per_part"].iloc[i]
+        position_density.extend([density for x in range(n_particles)])
+    return np.array(position_density)
+
+def write_sphere_voxels(df, pos_, new_halo_tensor, density_list, sample_edge, subsample_edge):
+    for i in range(pos_.shape[0]):
+        ix = pos_[i]
+        new_halo_tensor[ix[0], ix[1], ix[2]] += density_list[i]
+        if i % 1e6 == 0:
+            print ("{}% completed.".format(100*i/pos_.shape[0]))
+    return new_halo_tensor
+
+
+
 ###############################
 ## ALL HI MASS IN THE CENTER ##
 ###############################
@@ -143,48 +187,6 @@ def get_density_list(df, n_particles):
 
 
 def write_sphere_voxels_uniform(df, pos_, new_halo_tensor, density_list, sample_edge, subsample_edge):
-    for i in range(pos_.shape[0]):
-        ix = pos_[i]
-        new_halo_tensor[ix[0], ix[1], ix[2]] += density_list[i]
-        if i % 1e6 == 0:
-            print ("{}% completed.".format(100*i/pos_.shape[0]))
-    return new_halo_tensor
-
-#################################
-## DENSITY PROFILING FUNCTIONS ##
-#################################
-
-def write_mhi_per_particle(df, n_particles):
-    df["mhi_per_part"] = df["HI_mass"].apply(lambda x: x/n_particles)
-    return df
-
-def get_particle_position_density(df, n_particles, epsilon=1e-2):
-    num_halos = df.shape[0]
-    n_particles = int(n_particles)
-    center_x, center_y, center_z = df["voxel_x"], df["voxel_y"], df["voxel_z"]
-    U = np.random.rand(num_halos, n_particles)
-    V = np.random.rand(num_halos, n_particles)
-    W = np.random.rand(num_halos, n_particles)
-    print ("random numbers generated.")
-    r = np.floor(epsilon*(2048/75)*(np.power(np.array(df["radius"]).reshape(-1,1)/epsilon, U))) # voxel r
-    phi = np.multiply(np.ones((num_halos, 1)), 2*np.pi*V)
-    theta = np.multiply(np.ones((num_halos, 1)), np.arccos(-1+2*W))
-    print ("r, phi, theta generated.")
-    x = np.floor(np.array(center_x).reshape(-1,1) + np.multiply(np.multiply(r, np.sin(theta)), np.cos(phi)))
-    y = np.floor(np.array(center_y).reshape(-1,1) + np.multiply(np.multiply(r, np.sin(theta)), np.sin(phi)))
-    z = np.floor(np.array(center_z).reshape(-1,1) + np.multiply(r, np.cos(theta)))
-    print ("x, y, z generated. stacking started.")
-    particles_in_halos = np.stack((x,y,z), axis=2)
-    return particles_in_halos
-
-def get_density_list(df, n_particles):
-    position_density = []
-    for i in range(len(df)):
-        density = df["mhi_per_part"].iloc[i]
-        position_density.extend([density for x in range(n_particles)])
-    return position_density
-
-def write_sphere_voxels(df, pos_, new_halo_tensor, density_list, sample_edge, subsample_edge):
     for i in range(pos_.shape[0]):
         ix = pos_[i]
         new_halo_tensor[ix[0], ix[1], ix[2]] += density_list[i]
