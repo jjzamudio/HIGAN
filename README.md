@@ -12,7 +12,7 @@ Code acompaining paper: HydroGAN: Creating hydrodynamic simualtions using Genera
 
 * Clone this repo to your local machine using:
 ```
- git clone https://github.com/jjzamudio/Illustris_GAN.git
+ git clone https://github.com/jjzamudio/HydroGAN.git
 ```
 
 ### Usage
