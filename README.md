@@ -1,7 +1,6 @@
-# HydroGAN - Creating state-of-the-art cosmic neutral hydrogen maps with Generative Adversarial Networks
+# HIGAN - Cosmic neutral hydrogen with Generative Adversarial Networks
 
-Code acompaining paper: HydroGAN: Creating hydrodynamic simualtions using Generative Adversarial Networks
-
+Code acompaining paper: HIGAN - Cosmic neutral hydrogen with Generative Adversarial Networks
 
 ### Prerequisites
 
