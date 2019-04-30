@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 #import h5py
 from collections import defaultdict
 import pandas as pd
-from models import DCGAN_G, DCGAN_D, weights_init
+from models import DCGAN_G, DCGAN_D, MLP_G, MLP_D, weights_init
 from wgan_utils import check_coords, power_spectrum_np, _gradient_penalty,  HydrogenDataset, get_samples, data_transform
 from plot_utils import plot_loss, visualize_cube,  histogram_mean_confint, visualize2d, plot_power_spec
 
@@ -56,10 +56,10 @@ if __name__=="__main__":
     parser.add_argument('--load_weights', action='store_true', help='Load saved weights' )
     parser.add_argument('--load_opt', action='store_true', help='Load saved optimizers')
     parser.add_argument('--Diters', type=int, default=5, help='number of D iters per each G iter')
-    parser.add_argument('--n_extra_layers', type=int, default=0, help='Number of extra layers on gen and disc')
     parser.add_argument('--experiment', default=None, help='Where to store samples and models')
     parser.add_argument('--fixed', action='store_true', help='Use fixed samples' )
     parser.add_argument('--transform', default='log_max', help='Type of data transformation')
+    parser.add_argument('--MLP', action='store_true', help='MLP architecture')
     opt = parser.parse_args()
     print(opt)
     print('---', opt.experiment, '---')
@@ -68,7 +68,6 @@ if __name__=="__main__":
     s_sample = int(opt.s_sample)
     batchSize = int(opt.batchSize)
     ngpu = int(opt.ngpu)
-    n_extra_layers = int(opt.n_extra_layers)
     
     nz = int(opt.nz)
     ngf = int(opt.ngf)
@@ -85,8 +84,13 @@ if __name__=="__main__":
     #f = h5py.File(opt.datapath+'fields_z='+opt.redshift+'.hdf5', 'r')
     #f = f['delta_HI']  
     
-    netG = DCGAN_G(s_sample, nz, nc, ngf, ngpu, n_extra_layers)
-    netD = DCGAN_D(s_sample, nz, nc, ndf, ngpu, n_extra_layers)
+    if opt.MLP == True:
+        netG = MLP_G(s_sample, nz, nc, ngf, ngpu)
+        netD = MLP_D(s_sample, nz, nc, ngf, ngpu)
+        
+    else:
+        netG = DCGAN_G(s_sample, nz, nc, ngf, ngpu)
+        netD = DCGAN_D(s_sample, nz, nc, ndf, ngpu)
     
     #experiments/ch128_lr0005_tanh/netD_epoch_47.pth
     epoch_load = opt.epoch_st - 1
@@ -96,8 +100,8 @@ if __name__=="__main__":
         netG.load_state_dict(torch.load(opt.experiment+'netG_epoch_' + str(epoch_load) + '.pth'))
         netD.load_state_dict(torch.load(opt.experiment+'netD_epoch_' + str(epoch_load) + '.pth'))
         
-        #wass_loss=pd.read_csv(opt.experiment +'loss.csv', header=None)
-        #wass_loss=wass_loss[wass_loss.columns[0]].tolist()
+        wass_loss=pd.read_csv(opt.experiment +'loss.csv', header=None)
+        wass_loss=wass_loss[wass_loss.columns[0]].tolist()
         
     device = torch.device("cuda" if opt.cuda else "cpu")
     
@@ -187,7 +191,7 @@ if __name__=="__main__":
             for p in netD.parameters(): # reset requires_grad
                 p.requires_grad = True # they are set to False below in netG update
                
-            if gen_iterations < 2 or gen_iterations % 500 == 0:
+            if gen_iterations < 5 or gen_iterations % 500 == 0:
                 Diters = 100
             else:
                 Diters = opt.Diters
@@ -270,7 +274,7 @@ if __name__=="__main__":
             #wass_loss.append(float(errD.data[0]))
             errG_l.append(float(errG.data[0]))
     
-            if gen_iterations % 250 == 0:
+            if gen_iterations % 500 == 0:
                 with torch.no_grad():
                     fake = netG(Variable(fixed_noise))
                     fake = np.array(fake)
@@ -290,7 +294,6 @@ if __name__=="__main__":
    
                 plot_loss(wass_loss,'Wasserstein loss', log_=True, save_plot=opt.experiment, t=gen_iterations, med_filter=True)
    
-                
                 
                 torch.save(netG.state_dict(), '{0}/netG_epoch_{1}.pth'.format(opt.experiment, epoch))
                 torch.save(netD.state_dict(), '{0}/netD_epoch_{1}.pth'.format(opt.experiment, epoch))

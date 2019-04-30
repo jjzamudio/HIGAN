@@ -348,7 +348,7 @@ class HydrogenDataset(Dataset):
 
 def data_transform(sample, transform, d2=False, inverse=False):
     e = 1e-2
-    em = 1
+    em = 0
     
     if d2==False:
         if transform == 'log_max':
