@@ -20,7 +20,7 @@ Code acompaining paper: [HIGAN - Cosmic neutral hydrogen with Generative Adversa
 To run WGAN in 3D:
 
 ```
-python wgan/wgan.py [--datapath ] [--n_samples] [--experiment] [--fixed]
+python wgan/main.py [--datapath ] [--n_samples] [--experiment] [--fixed]
  
 
 Arguments:
