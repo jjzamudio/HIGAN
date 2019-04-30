@@ -1,6 +1,7 @@
 # HIGAN - Cosmic neutral hydrogen with Generative Adversarial Networks
 
-Code acompaining paper: HIGAN - Cosmic neutral hydrogen with Generative Adversarial Networks
+
+Code acompaining paper: [HIGAN - Cosmic neutral hydrogen with Generative Adversarial Networks]( https://arxiv.org/abs/1904.12846)
 
 ### Prerequisites
 
