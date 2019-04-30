@@ -50,6 +50,7 @@ Optional arguments:
   --Diters                    Number of Discriminator iterations per Generator iterations (default=5)
   --transform                 Type of data transformation
   --MLP                       Use MLPs instead of convolutional architecture
+  --fixed                     Use fixed samples or samples directly from h5py file
 
 ```
 
