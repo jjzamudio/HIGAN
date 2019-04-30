@@ -12,7 +12,7 @@ Code acompaining paper: [HIGAN - Cosmic neutral hydrogen with Generative Adversa
 
 * Clone this repo to your local machine using:
 ```
- git clone https://github.com/jjzamudio/HydroGAN.git
+ git clone https://github.com/jjzamudio/HIGAN.git
 ```
 
 ### Usage
